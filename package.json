@@ -1,0 +1,21 @@
+{
+  "name": "beatgamesmanager",
+  "version": "1.0.0",
+  "description": "Gerenciador de jogos para zerar com integração de busca externa",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://localhost:26831/isaacslima/beatgamesmanager"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}
