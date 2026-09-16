@@ -3,6 +3,19 @@ const gamesList = document.getElementById('games-list');
 const cancelEditButton = document.getElementById('cancel-edit');
 const searchForm = document.getElementById('search-form');
 const searchResults = document.getElementById('search-results');
+const platformSelect = document.getElementById('platform');
+const emulatorWrapper = document.getElementById('emulator-wrapper');
+const emulatorNameInput = document.getElementById('emulatorName');
+
+function toggleEmulatorField() {
+  const isEmulator = platformSelect.value === 'PC com emulador';
+  emulatorWrapper.classList.toggle('hidden', !isEmulator);
+  emulatorNameInput.required = isEmulator;
+
+  if (!isEmulator) {
+    emulatorNameInput.value = '';
+  }
+}
 
 async function fetchGames() {
   const response = await fetch('/api/games');
@@ -22,9 +35,12 @@ function renderGames(games) {
     li.className = 'list-item';
     li.innerHTML = `
       <strong>${game.name}</strong>
+      <span>Plataforma: ${game.platform || '-'}</span>
+      <span>Emulador: ${game.emulatorName || '-'}</span>
       <span>Início: ${game.startDate || '-'}</span>
       <span>Fim: ${game.endDate || '-'}</span>
       <span>Nota: ${game.rating ?? '-'}</span>
+      <span>Tempo total (h): ${game.totalPlayTimeHours ?? '-'}</span>
       <span>Observações: ${game.notes || '-'}</span>
       <div class="item-actions">
         <button type="button" data-action="edit" data-id="${game.id}">Editar</button>
@@ -39,6 +55,7 @@ function renderGames(games) {
 function resetForm() {
   gameForm.reset();
   document.getElementById('game-id').value = '';
+  toggleEmulatorField();
 }
 
 async function loadGames() {
@@ -51,6 +68,9 @@ gameForm.addEventListener('submit', async (event) => {
 
   const payload = {
     name: document.getElementById('name').value,
+    platform: document.getElementById('platform').value || '',
+    emulatorName: document.getElementById('emulatorName').value || '',
+    totalPlayTimeHours: document.getElementById('totalPlayTimeHours').value || null,
     startDate: document.getElementById('startDate').value || null,
     endDate: document.getElementById('endDate').value || null,
     notes: document.getElementById('notes').value,
@@ -98,10 +118,14 @@ gamesList.addEventListener('click', async (event) => {
   if (action === 'edit' && game) {
     document.getElementById('game-id').value = game.id;
     document.getElementById('name').value = game.name;
+    document.getElementById('platform').value = game.platform || '';
+    document.getElementById('emulatorName').value = game.emulatorName || '';
     document.getElementById('startDate').value = game.startDate || '';
     document.getElementById('endDate').value = game.endDate || '';
     document.getElementById('notes').value = game.notes || '';
     document.getElementById('rating').value = game.rating ?? '';
+    document.getElementById('totalPlayTimeHours').value = game.totalPlayTimeHours ?? '';
+    toggleEmulatorField();
     return;
   }
 
@@ -157,5 +181,8 @@ searchForm.addEventListener('submit', async (event) => {
     searchResults.appendChild(li);
   });
 });
+
+platformSelect.addEventListener('change', toggleEmulatorField);
+toggleEmulatorField();
 
 loadGames();

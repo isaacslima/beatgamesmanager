@@ -34,6 +34,7 @@ form {
 }
 
 input,
+select,
 textarea,
 button {
   font: inherit;
@@ -43,6 +44,7 @@ button {
 }
 
 input,
+select,
 textarea {
   background: #181818;
   color: #f5f5f5;
@@ -97,4 +99,8 @@ button.secondary {
 
 .error {
   color: #ef5350;
+}
+
+.hidden {
+  display: none;
 }

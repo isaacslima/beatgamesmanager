@@ -19,6 +19,21 @@
           <label for="name">Nome</label>
           <input id="name" name="name" required />
 
+          <label for="platform">Plataforma</label>
+          <select id="platform" name="platform">
+            <option value="">Selecione</option>
+            <option value="Nintendo Wii U">Nintendo Wii U</option>
+            <option value="Nintendo DS">Nintendo DS</option>
+            <option value="PC com emulador">PC com emulador</option>
+            <option value="PC">PC</option>
+            <option value="Outros">Outros</option>
+          </select>
+
+          <div id="emulator-wrapper" class="hidden">
+            <label for="emulatorName">Emulador</label>
+            <input id="emulatorName" name="emulatorName" />
+          </div>
+
           <label for="startDate">Data de início</label>
           <input id="startDate" name="startDate" type="date" />
 
@@ -30,6 +45,9 @@
 
           <label for="rating">Nota (0 a 10)</label>
           <input id="rating" name="rating" type="number" min="0" max="10" step="0.1" />
+
+          <label for="totalPlayTimeHours">Tempo total jogado (horas)</label>
+          <input id="totalPlayTimeHours" name="totalPlayTimeHours" type="number" min="0" step="0.1" />
 
           <div class="actions">
             <button type="submit">Salvar</button>

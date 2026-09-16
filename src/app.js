@@ -2,7 +2,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
-const { listGames, createGame, updateGame, deleteGame } = require('./db');
+const { initDatabase, listGames, createGame, updateGame, deleteGame } = require('./db');
 
 const app = express();
 
@@ -17,9 +17,32 @@ app.use(
   })
 );
 
+let startupError = null;
+const startupPromise = initDatabase().catch((error) => {
+  startupError = error;
+});
+
+app.use(async (_req, res, next) => {
+  try {
+    await startupPromise;
+    if (startupError) {
+      return res.status(500).json({ message: 'Erro ao inicializar banco de dados.' });
+    }
+    next();
+  } catch (_error) {
+    res.status(500).json({ message: 'Erro ao inicializar banco de dados.' });
+  }
+});
+
 function normalizePayload(payload) {
   return {
     name: typeof payload.name === 'string' ? payload.name.trim() : '',
+    platform: typeof payload.platform === 'string' ? payload.platform.trim() : '',
+    emulatorName: typeof payload.emulatorName === 'string' ? payload.emulatorName.trim() : '',
+    totalPlayTimeHours:
+      payload.totalPlayTimeHours === '' || payload.totalPlayTimeHours === null || payload.totalPlayTimeHours === undefined
+        ? null
+        : Number(payload.totalPlayTimeHours),
     startDate: typeof payload.startDate === 'string' ? payload.startDate : null,
     endDate: typeof payload.endDate === 'string' ? payload.endDate : null,
     notes: typeof payload.notes === 'string' ? payload.notes.trim() : '',
@@ -34,6 +57,16 @@ function validatePayload(payload) {
     return 'O nome do jogo é obrigatório.';
   }
 
+  if (payload.platform === 'PC com emulador' && !payload.emulatorName) {
+    return 'Informe o nome do emulador quando a plataforma for PC com emulador.';
+  }
+
+  if (payload.totalPlayTimeHours !== null) {
+    if (Number.isNaN(payload.totalPlayTimeHours) || payload.totalPlayTimeHours < 0) {
+      return 'O tempo total jogado deve ser um número maior ou igual a zero.';
+    }
+  }
+
   if (payload.rating !== null) {
     if (Number.isNaN(payload.rating) || payload.rating < 0 || payload.rating > 10) {
       return 'A nota deve estar entre 0 e 10.';
@@ -46,6 +79,10 @@ function validatePayload(payload) {
 
   if (payload.endDate && Number.isNaN(Date.parse(payload.endDate))) {
     return 'A data de término é inválida.';
+  }
+
+  if (payload.platform !== 'PC com emulador') {
+    payload.emulatorName = '';
   }
 
   return null;

@@ -3,10 +3,13 @@
 Projeto para gerenciar jogos que você quer zerar, com:
 
 - Nome do jogo
+- Plataforma (ex.: Nintendo Wii U, Nintendo DS, PC com emulador)
+- Emulador (quando a plataforma for PC com emulador)
 - Data de início
 - Data de término
 - Observações
 - Nota (0 a 10)
+- Tempo total jogado em horas (opcional)
 
 Também inclui busca opcional de jogos em API externa (CheapShark).
 
@@ -80,8 +83,17 @@ npm run migrate
 
 O script:
 - lê o arquivo `data/games.json`
-- cria a tabela `games` (se ainda não existir)
+- cria/atualiza a tabela `games` (se ainda não existir ou faltar colunas)
 - insere/atualiza registros por `id`
+
+## Migração automática ao subir o backend
+
+Ao iniciar o backend, a aplicação executa a migração de schema automaticamente:
+
+- cria a tabela `games` se não existir
+- adiciona colunas novas se ainda não existirem
+
+Isso garante que o banco fique pronto sem precisar rodar SQL manualmente.
 
 ## Verificação pós-deploy
 

@@ -9,6 +9,12 @@ function normalizeRecord(record) {
   return {
     id: typeof record.id === 'string' && record.id ? record.id : randomUUID(),
     name: typeof record.name === 'string' ? record.name.trim() : '',
+    platform: typeof record.platform === 'string' ? record.platform.trim() : '',
+    emulatorName: typeof record.emulatorName === 'string' ? record.emulatorName.trim() : '',
+    totalPlayTimeHours:
+      record.totalPlayTimeHours === null || record.totalPlayTimeHours === undefined || record.totalPlayTimeHours === ''
+        ? null
+        : Number(record.totalPlayTimeHours),
     startDate: typeof record.startDate === 'string' && record.startDate ? record.startDate : null,
     endDate: typeof record.endDate === 'string' && record.endDate ? record.endDate : null,
     notes: typeof record.notes === 'string' ? record.notes.trim() : '',
@@ -43,6 +49,17 @@ async function run() {
 
     if (game.rating !== null && (Number.isNaN(game.rating) || game.rating < 0 || game.rating > 10)) {
       continue;
+    }
+
+    if (
+      game.totalPlayTimeHours !== null &&
+      (Number.isNaN(game.totalPlayTimeHours) || game.totalPlayTimeHours < 0)
+    ) {
+      continue;
+    }
+
+    if (game.platform !== 'PC com emulador') {
+      game.emulatorName = '';
     }
 
     await upsertGame(game);
