@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node --test"
+    "test": "node --test",
+    "migrate": "node scripts/migrate-json-to-postgres.js"
   },
   "repository": {
     "type": "git",
@@ -16,6 +17,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@vercel/postgres": "^0.10.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0"
   }
