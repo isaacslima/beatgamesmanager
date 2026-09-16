@@ -1,4 +1,5 @@
 const express = require('express');
+const rateLimit = require('express-rate-limit');
 const { randomUUID } = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -10,6 +11,14 @@ const DATA_FILE = path.join(DATA_DIR, 'games.json');
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use(
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
 
 function ensureDataStore() {
   if (!fs.existsSync(DATA_DIR)) {
