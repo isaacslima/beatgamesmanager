@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Beat Games Manager</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main>
+      <h1>Beat Games Manager</h1>
+      <p>Gerencie sua biblioteca de jogos que você quer zerar.</p>
+
+      <section class="card">
+        <h2>Cadastrar jogo</h2>
+        <form id="game-form">
+          <input type="hidden" id="game-id" />
+
+          <label for="name">Nome</label>
+          <input id="name" name="name" required />
+
+          <label for="platform">Plataforma</label>
+          <select id="platform" name="platform">
+            <option value="">Selecione</option>
+            <option value="Nintendo Wii U">Nintendo Wii U</option>
+            <option value="Nintendo DS">Nintendo DS</option>
+            <option value="PC com emulador">PC com emulador</option>
+            <option value="PC">PC</option>
+            <option value="Outros">Outros</option>
+          </select>
+
+          <div id="emulator-wrapper" class="hidden">
+            <label for="emulatorName">Emulador</label>
+            <input id="emulatorName" name="emulatorName" />
+          </div>
+
+          <label for="startDate">Data de início</label>
+          <input id="startDate" name="startDate" type="date" />
+
+          <label for="endDate">Data de término</label>
+          <input id="endDate" name="endDate" type="date" />
+
+          <label for="notes">Observações</label>
+          <textarea id="notes" name="notes"></textarea>
+
+          <label for="rating">Nota (0 a 10)</label>
+          <input id="rating" name="rating" type="number" min="0" max="10" step="0.1" />
+
+          <label for="totalPlayTimeHours">Tempo total jogado (horas)</label>
+          <input id="totalPlayTimeHours" name="totalPlayTimeHours" type="number" min="0" step="0.1" />
+
+          <div class="actions">
+            <button type="submit">Salvar</button>
+            <button type="button" id="cancel-edit" class="secondary">Cancelar edição</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Pesquisar jogos em API externa</h2>
+        <form id="search-form" class="search-row">
+          <input id="search-term" placeholder="Ex.: Hollow Knight" />
+          <button type="submit">Buscar</button>
+        </form>
+        <ul id="search-results" class="list"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Minha lista</h2>
+        <ul id="games-list" class="list"></ul>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
