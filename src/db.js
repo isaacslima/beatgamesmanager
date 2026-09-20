@@ -1,4 +1,13 @@
-const { sql } = require('@vercel/postgres');
+const { Pool } = require('pg');
+
+const rawConnectionString = process.env.POSTGRES_URL || process.env.STORAGE_POSTGRES_URL;
+const connectionString = rawConnectionString?.split('?')[0];
+const pool = new Pool({ connectionString, ssl: { rejectUnauthorized: false } });
+
+function sql(strings, ...values) {
+  const text = strings.slice(1).reduce((acc, str, i) => `${acc}$${i + 1}${str}`, strings[0]);
+  return pool.query(text, values);
+}
 
 let initialized = false;
 
@@ -55,7 +64,72 @@ async function initDatabase() {
   await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS emulator_name TEXT`;
   await sql`ALTER TABLE games ADD COLUMN IF NOT EXISTS total_play_time_hours NUMERIC(8,1)`;
 
+  await sql`
+    CREATE TABLE IF NOT EXISTS platforms (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      image_url TEXT,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `;
+
   initialized = true;
+}
+
+function mapRowToPlatform(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    imageUrl: row.image_url,
+  };
+}
+
+async function listPlatforms() {
+  await initDatabase();
+  const { rows } = await sql`SELECT id, name, image_url FROM platforms ORDER BY name`;
+  return rows.map(mapRowToPlatform);
+}
+
+async function createPlatform(platform) {
+  await initDatabase();
+  const { rows } = await sql`
+    INSERT INTO platforms (id, name, image_url)
+    VALUES (${platform.id}, ${platform.name}, ${platform.imageUrl})
+    RETURNING id, name, image_url
+  `;
+
+  return mapRowToPlatform(rows[0]);
+}
+
+async function getStats() {
+  await initDatabase();
+  const [{ rows: totalRows }, { rows: platformRows }, { rows: lastRows }] = await Promise.all([
+    sql`SELECT COUNT(*)::int AS total FROM games`,
+    sql`
+      SELECT platform, COUNT(*)::int AS count
+      FROM games
+      WHERE platform IS NOT NULL AND platform <> ''
+      GROUP BY platform
+      ORDER BY count DESC
+    `,
+    sql`
+      SELECT id, name, platform, created_at
+      FROM games
+      ORDER BY created_at DESC
+      LIMIT 9
+    `,
+  ]);
+
+  return {
+    totalGames: totalRows[0].total,
+    platformCounts: platformRows.map((row) => ({ platform: row.platform, count: row.count })),
+    lastGames: lastRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      platform: row.platform,
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+    })),
+  };
 }
 
 async function listGames() {
@@ -140,4 +214,7 @@ module.exports = {
   updateGame,
   deleteGame,
   upsertGame,
+  listPlatforms,
+  createPlatform,
+  getStats,
 };

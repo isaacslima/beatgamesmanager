@@ -9,8 +9,8 @@ async function startServer() {
     app.listen(PORT, () => {
       console.log(`Servidor rodando em http://localhost:${PORT}`);
     });
-  } catch (_error) {
-    console.error('Falha ao inicializar banco de dados.');
+  } catch (error) {
+    console.error('Falha ao inicializar banco de dados.', error);
     process.exit(1);
   }
 }

@@ -1,8 +1,21 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
+const multer = require('multer');
+const { put } = require('@vercel/blob');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
-const { initDatabase, listGames, createGame, updateGame, deleteGame } = require('./db');
+const {
+  initDatabase,
+  listGames,
+  createGame,
+  updateGame,
+  deleteGame,
+  listPlatforms,
+  createPlatform,
+  getStats,
+} = require('./db');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const app = express();
 
@@ -158,6 +171,49 @@ app.delete('/api/games/:id', async (req, res) => {
   }
 });
 
+app.get('/api/platforms', async (_req, res) => {
+  try {
+    const platforms = await listPlatforms();
+    res.json(platforms);
+  } catch (_error) {
+    res.status(500).json({ message: 'Erro ao listar plataformas.' });
+  }
+});
+
+app.post('/api/platforms', upload.single('image'), async (req, res) => {
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+
+  if (!name) {
+    return res.status(400).json({ message: 'O nome da plataforma é obrigatório.' });
+  }
+
+  try {
+    let imageUrl = null;
+
+    if (req.file) {
+      const blob = await put(req.file.originalname, req.file.buffer, {
+        access: 'public',
+        addRandomSuffix: true,
+      });
+      imageUrl = blob.url;
+    }
+
+    const platform = await createPlatform({ id: randomUUID(), name, imageUrl });
+    return res.status(201).json(platform);
+  } catch (_error) {
+    return res.status(500).json({ message: 'Erro ao criar plataforma.' });
+  }
+});
+
+app.get('/api/stats', async (_req, res) => {
+  try {
+    const stats = await getStats();
+    res.json(stats);
+  } catch (_error) {
+    res.status(500).json({ message: 'Erro ao carregar estatísticas.' });
+  }
+});
+
 app.get('/api/search-games', async (req, res) => {
   const query = String(req.query.q || '').trim();
 
@@ -166,7 +222,9 @@ app.get('/api/search-games', async (req, res) => {
   }
 
   try {
-    const response = await fetch(`https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(query)}&limit=10`);
+    const response = await fetch(`https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(query)}&limit=10`, {
+      headers: { 'User-Agent': 'BeatGamesManager/1.0 (contato@iasolutions.tec.br)' },
+    });
 
     if (!response.ok) {
       return res.status(502).json({ message: 'Não foi possível consultar a API de jogos.' });
