@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { planImport, summarize, buildImportWrites } = require('../src/importer');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { planImport, summarize, buildImportWrites } from '../public/js/shared/importer.js';
 
 function catalogs() {
   return {

@@ -2,18 +2,19 @@
   "name": "beatgamesmanager",
   "version": "1.0.0",
   "description": "Gerenciador de jogos para zerar com integração de busca externa",
-  "main": "src/functions.js",
+  "main": "server/dev.js",
   "engines": {
-    "node": "22"
+    "node": "22.x"
   },
   "scripts": {
-    "start": "node --env-file-if-exists=.env.local src/server.js",
-    "dev": "node --env-file-if-exists=.env.local --watch src/server.js",
+    "start": "node --env-file-if-exists=.env.local server/dev.js",
+    "dev": "node --env-file-if-exists=.env.local --watch server/dev.js",
     "test": "node --test",
     "deploy": "firebase deploy",
     "firebase:login": "firebase login",
     "deploy:hosting": "firebase deploy --only hosting",
-    "emulators": "firebase emulators:start --only functions,hosting"
+    "emulators": "firebase emulators:start --only hosting",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-beatgames-rules \"node --test rules-tests/firestore-rules.mjs\""
   },
   "repository": {
     "type": "git",
@@ -25,12 +26,12 @@
   "dependencies": {
     "@vercel/blob": "^2.8.0",
     "busboy": "^1.6.0",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
-    "firebase-admin": "^14.5.0",
-    "firebase-functions": "^7.4.0"
+    "firebase-admin": "^14.5.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
+    "express": "^5.2.1",
+    "firebase": "^12.19.0",
     "firebase-tools": "~15.32.1"
   }
 }

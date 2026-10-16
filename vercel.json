@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "",
+  "redirects": [
+    {
+      "source": "/((?!api/).*)",
+      "destination": "https://beatgamesmanager.web.app/$1",
+      "permanent": false
+    }
+  ]
+}

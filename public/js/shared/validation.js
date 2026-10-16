@@ -1,4 +1,4 @@
-const { MIN_SCORE, MAX_SCORE, STATUS_COLORS } = require('./catalog');
+import { MIN_SCORE, MAX_SCORE, STATUS_COLORS } from './catalog.js';
 
 function isBlank(value) {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -16,7 +16,7 @@ function toBoolean(value) {
   return value === true || value === 'true' || value === 'on' || value === '1' || value === 1;
 }
 
-function normalizeKey(value) {
+export function normalizeKey(value) {
   return String(value ?? '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
@@ -34,7 +34,7 @@ function parseInteger(value) {
   return Number.isInteger(number) ? number : Number.NaN;
 }
 
-function parseDate(value, label) {
+export function parseDate(value, label) {
   if (isBlank(value)) {
     return { value: null };
   }
@@ -51,7 +51,7 @@ function parseDate(value, label) {
 }
 
 // Aceita "HH:MM:SS", "HH:MM" ou horas decimais ("12.5" / "12,5"). Retorna segundos.
-function parsePlayTime(value) {
+export function parsePlayTime(value) {
   if (isBlank(value)) {
     return { value: null };
   }
@@ -82,24 +82,24 @@ function requireName(body, label) {
   return name ? { name } : { error: `O nome ${label} é obrigatório.` };
 }
 
-function parsePlatform(body) {
+export function parsePlatform(body) {
   const { name, error } = requireName(body, 'da plataforma');
   return error ? { error } : { data: { name } };
 }
 
-function parseGenre(body) {
+export function parseGenre(body) {
   const { name, error } = requireName(body, 'do gênero');
   return error ? { error } : { data: { name, description: text(body.description, 500) } };
 }
 
-function parseType(body) {
+export function parseType(body) {
   const { name, error } = requireName(body, 'do tipo');
   return error
     ? { error }
     : { data: { name, genreId: optionalId(body.genreId), description: text(body.description, 500) } };
 }
 
-function parseScore(body) {
+export function parseScore(body) {
   const value = parseInteger(body.value);
   const label = text(body.label, 60);
 
@@ -114,7 +114,7 @@ function parseScore(body) {
   return { data: { value, label, description: text(body.description, 500) } };
 }
 
-function parseDifficulty(body) {
+export function parseDifficulty(body) {
   const key = text(body.key, 10).toUpperCase();
   const label = text(body.label, 60);
   const order = parseInteger(body.order);
@@ -134,7 +134,7 @@ function parseDifficulty(body) {
   return { data: { key, label, order, description: text(body.description, 500) } };
 }
 
-function parseStatus(body) {
+export function parseStatus(body) {
   const { name, error } = requireName(body, 'do status');
   if (error) {
     return { error };
@@ -149,7 +149,7 @@ function parseStatus(body) {
   return { data: { name, color, order, description: text(body.description, 500) } };
 }
 
-function parseGame(body) {
+export function parseGame(body) {
   const title = text(body.title, 200);
   if (!title) {
     return { error: 'O nome do jogo é obrigatório.' };
@@ -203,15 +203,3 @@ function parseGame(body) {
   };
 }
 
-module.exports = {
-  normalizeKey,
-  parseDate,
-  parsePlayTime,
-  parsePlatform,
-  parseGenre,
-  parseType,
-  parseScore,
-  parseDifficulty,
-  parseStatus,
-  parseGame,
-};

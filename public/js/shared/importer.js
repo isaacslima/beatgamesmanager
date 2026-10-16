@@ -1,7 +1,7 @@
-const { randomUUID } = require('node:crypto');
-const { normalizeKey, parseGame } = require('./validation');
 
-const MAX_ITEMS = 1000;
+import { normalizeKey, parseGame } from './validation.js';
+
+export const MAX_ITEMS = 1000;
 
 const NEW_LABELS = {
   platforms: (name) => `Plataforma "${name}" será criada.`,
@@ -47,7 +47,7 @@ function placeholder(kind, key) {
  * Monta o plano de importação (nada é gravado aqui).
  * catalogs: { statuses, platforms, genres, types, scores, difficulties, games }
  */
-function planImport(items, catalogs) {
+export function planImport(items, catalogs) {
   if (!Array.isArray(items)) {
     return { error: 'O arquivo deve conter uma lista (array) de jogos: [ { ... }, { ... } ].' };
   }
@@ -216,7 +216,7 @@ function planImport(items, catalogs) {
   return { rows, toCreate };
 }
 
-function summarize(plan) {
+export function summarize(plan) {
   const rows = plan.rows;
   return {
     total: rows.length,
@@ -230,7 +230,7 @@ function summarize(plan) {
 }
 
 /** Converte as linhas selecionadas em gravações, criando só os cadastros realmente usados. */
-function buildImportWrites(plan, selectedIndexes, { newId = randomUUID, now = Date.now() } = {}) {
+export function buildImportWrites(plan, selectedIndexes, { newId = () => crypto.randomUUID(), now = Date.now() } = {}) {
   const selected = plan.rows.filter((row) => row.valid && selectedIndexes.has(row.index));
   const createdAt = new Date(now).toISOString();
   const idMap = new Map();
@@ -283,4 +283,3 @@ function buildImportWrites(plan, selectedIndexes, { newId = randomUUID, now = Da
   return { writes, counts };
 }
 
-module.exports = { planImport, summarize, buildImportWrites, MAX_ITEMS };

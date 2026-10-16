@@ -10,25 +10,31 @@ A especificação completa está em [`docs/especifica_o_de_features_beat_games.m
 - **Cadastros** com CRUD e DataTable próprios: Status (nome, cor e ordem editáveis), Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
 - **Campos do jogo**: nome, plataforma, gênero, tipo, status, data de início e término (opcionais), tempo total (`HH:MM:SS`, `HH:MM` ou horas decimais), nota, dificuldade, condição de zeramento, destaque/GOTY e observações.
 - **Condição de zeramento com sugestões**: ao focar ou digitar no campo, o sistema sugere condições já usadas no seu histórico, priorizando jogos do mesmo tipo, gênero e plataforma, além de exemplos padrão.
-- **Integridade**: não é possível excluir plataforma, gênero, tipo, nota ou dificuldade em uso por algum jogo.
+- **Integridade**: não é possível excluir status, plataforma, gênero, tipo, nota ou dificuldade em uso por algum jogo.
 - **Importação via JSON** (Jogos > Importar JSON): baixe o exemplo, selecione o arquivo e confira a prévia linha a linha (erros, possíveis duplicados e cadastros que serão criados) antes de confirmar. Plataformas, gêneros e tipos são informados pelo nome e criados se não existirem; status, dificuldade e nota precisam já estar cadastrados.
 - No primeiro acesso, cada usuário recebe os status (Lista de Desejo, Planejado para Jogar, Zerado, Dropado), a escala de notas (11 - Jogo da vida até 1 - Tragédia) e as dificuldades (C/Fácil até AAA/Imperdoável). Tudo é editável; "Lista de Desejo" e "Zerado" podem ser renomeados, mas não excluídos, porque alimentam os cards do dashboard.
-- **Dados por usuário**: cada conta tem os próprios jogos e cadastros; o backend só acessa `users/{uid}` do usuário do token.
-- Busca opcional do nome do jogo na API externa (CheapShark), direto no formulário.
+- **Dados por usuário**: cada conta tem os próprios jogos e cadastros em `users/{uid}`; as regras do Firestore impedem qualquer acesso aos dados de outra conta.
 
-## Stack atual
+## Arquitetura
 
-- Hosting: Firebase Hosting (serve `public/` e encaminha `/api/**` para a função)
-- Backend: Node.js + Express no Cloud Functions (2ª geração, função `api` em `us-central1`)
-- Autenticação: Firebase Authentication (Google e e-mail/senha)
-- Banco: Cloud Firestore (acessado pelo backend via `firebase-admin`)
-- Imagens das plataformas: Vercel Blob (único serviço que continua na Vercel)
-- Frontend: HTML/CSS/JS estático (módulos ES)
-
-Cada usuário tem seus próprios dados no Firestore:
+O app não tem servidor próprio: o navegador fala direto com o Firebase, e só o upload de imagens passa por uma função na Vercel.
 
 ```
-users/{uid}                       { defaultsSeededAt }
+Navegador (Firebase Hosting: beatgamesmanager.web.app)
+ ├─ Firebase Authentication ........ login (Google e e-mail/senha)
+ ├─ Cloud Firestore ................ dados, protegidos por firestore.rules
+ └─ Vercel: /api/upload ............ envia/remove imagens no Vercel Blob (token secreto)
+```
+
+- **Hosting**: Firebase Hosting serve `public/`. Funciona no plano gratuito (Spark).
+- **Banco**: Cloud Firestore, acessado com o SDK web. As **regras** (`firestore.rules`) garantem o isolamento por usuário e o formato de cada documento (campos permitidos, tipos, tamanhos, nota de 1 a 11, datas, cores de status, status fixos não excluíveis).
+- **Validações do app** (`public/js/data.js` e `public/js/shared/`): checagens que precisam de consultas e que as regras não conseguem fazer, como nome duplicado, referências existentes e "não excluir se estiver em uso".
+- **Imagens**: `api/upload.js` é uma função serverless na Vercel. Ela exige o token de login do Firebase, grava em `platforms/{uid}/...` no Vercel Blob e só remove imagens do próprio usuário. Os demais caminhos do domínio da Vercel redirecionam para o Firebase Hosting.
+
+Estrutura no Firestore:
+
+```
+users/{uid}                       defaultsVersion, defaultsSeededAt
 users/{uid}/games/{gameId}        title, platformId, genreId, typeId, status, startDate, endDate,
                                   playTimeSeconds, score, difficultyId, completionCondition, isGoty, notes
 users/{uid}/statuses/{id}         name, color, order, description
@@ -39,114 +45,67 @@ users/{uid}/scores/{valor}        value (1–11), label, description
 users/{uid}/difficulties/{id}     key (C…AAA), label, order, description
 ```
 
-O campo `status` do jogo guarda o id de um registro em `statuses` (os padrões usam os ids `wishlist`, `planned`, `completed` e `dropped`).
+O campo `status` do jogo guarda o id de um registro em `statuses` (os padrões usam os ids `wishlist`, `planned`, `completed` e `dropped`). Todos os documentos têm `createdAt` e `updatedAt` (ISO 8601).
 
-## Requisitos
+## Configuração
 
-- Node.js 22+
-- Projeto Firebase `beatgamesmanager` no plano **Blaze** (pago por uso; obrigatório para Cloud Functions e Secret Manager; o uso pessoal costuma ficar dentro da cota gratuita)
-- Um Blob store na Vercel (para as imagens das plataformas)
-
-## Configurar o Firebase
+### Firebase
 
 1. No [console do Firebase](https://console.firebase.google.com/project/beatgamesmanager), abra **Authentication > Sign-in method** e habilite **Google** e **E-mail/senha**.
-2. Em **Authentication > Settings > Authorized domains**, confirme `beatgamesmanager.web.app` e `beatgamesmanager.firebaseapp.com` (já vêm por padrão). `localhost` também já vem autorizado.
-3. Abra **Firestore Database** e crie o banco (modo produção).
-4. Em **Configurações do projeto > Uso e faturamento**, mude o plano para **Blaze**.
-5. Em **Configurações do projeto > Contas de serviço**, clique em **Gerar nova chave privada** e baixe o JSON (usado só para rodar localmente).
+2. Em **Authentication > Settings > Authorized domains**, confirme `beatgamesmanager.web.app` e `beatgamesmanager.firebaseapp.com` (vêm por padrão) e `localhost`.
+3. A configuração web do Firebase (apiKey etc.) fica em `public/js/auth.js`. Ela é pública por natureza; a segurança vem das regras do Firestore.
 
-## Variáveis e secrets
+### Vercel (só o upload de imagens)
 
-**Produção (Cloud Functions):** as credenciais do Firebase são automáticas. Só o token do Blob precisa ser cadastrado, uma vez, como secret:
+- O projeto da Vercel precisa apenas da variável `BLOB_READ_WRITE_TOKEN`, criada automaticamente ao conectar o Blob store.
+- O deploy da função acontece a cada push na `main` (integração Git da Vercel). Se o domínio da Vercel mudar, atualize `UPLOAD_URL` em `public/js/images.js`.
+- As origens permitidas (CORS) ficam em `api/upload.js`.
 
-```bash
-npx firebase functions:secrets:set BLOB_READ_WRITE_TOKEN
-```
+### Local (`.env.local`)
 
-**Local (`.env.local`):**
-
-| Variável | Descrição |
+| Variável | Uso |
 | --- | --- |
-| `SERVICE_ACCOUNT_JSON` | Conteúdo do JSON da conta de serviço, em uma linha |
-| `BLOB_READ_WRITE_TOKEN` | Token do Vercel Blob (Vercel > Storage > seu Blob store > `.env.local`) |
+| `BLOB_READ_WRITE_TOKEN` | Upload de imagens no `npm run dev` (Vercel > Storage > seu Blob store > `.env.local`) |
 
-> Não use o prefixo `FIREBASE_` nos arquivos `.env*`: ele é reservado pelo Firebase CLI. `FIREBASE_SERVICE_ACCOUNT` ainda é aceito pelo `npm run dev`, mas quebra o emulador.
+O arquivo `.env.local` é ignorado pelo git.
 
-Para o emulador de Functions, o secret fica em `.secret.local` (`BLOB_READ_WRITE_TOKEN=...`). Os arquivos `*.local` e `.env*` são ignorados pelo git.
-
-> A configuração web do Firebase (apiKey etc.) fica em `public/js/auth.js`. Ela é pública por natureza; a segurança vem das regras do Firestore e da verificação do token no backend.
-
-## Instalação e execução local
+## Desenvolvimento
 
 ```bash
 npm install
-npm start
-```
-
-A aplicação fica disponível em `http://localhost:3000` (o Express serve o frontend e a API juntos).
-
-Para testar exatamente como em produção (Hosting + Function emulados, usando o Firestore real):
-
-```bash
-npm run emulators   # abre em http://127.0.0.1:5000 (ou a próxima porta livre)
+npm run dev     # http://localhost:3000: frontend + /api/upload local, usando o Firestore real
 ```
 
 ## Scripts
 
 - `npm start` / `npm run dev`: servidor local (com watch no `dev`)
-- `npm test`: testes automatizados (`node --test`)
-- `npm run emulators`: emuladores de Hosting e Functions
+- `npm test`: testes automatizados (validação, importação e sugestões)
+- `npm run test:rules`: testa as regras do Firestore no emulador (requer Java)
+- `npm run emulators`: emulador do Hosting
 - `npm run firebase:login`: autentica o Firebase CLI (uma vez por máquina)
-- `npm run deploy`: publica no Firebase tudo o que está em `firebase.json` (Hosting, Function `api`, regras e índices do Firestore)
+- `npm run deploy`: publica no Firebase o Hosting e as regras/índices do Firestore
 - `npm run deploy:hosting`: publica só o frontend
 
-## Deploy no Firebase
-
-As configurações do Firebase ficam versionadas no repositório:
-
-- `firebase.json`: Hosting (com rewrite de `/api/**` para a função), Functions e Firestore
-- `.firebaserc`: projeto padrão (`beatgamesmanager`)
-- `src/functions.js`: entrada da função `api` (usa o app Express de `src/app.js`)
-- `firestore.rules`: regras de segurança (bloqueiam acesso direto dos clientes)
-- `firestore.indexes.json`: índices do Firestore
+## Deploy
 
 ```bash
-npm run firebase:login                               # só na primeira vez
-npx firebase functions:secrets:set BLOB_READ_WRITE_TOKEN   # só na primeira vez
-npm run deploy
+npm run firebase:login   # só na primeira vez
+npm run deploy           # Firebase Hosting + regras do Firestore
 ```
 
-O site fica em `https://beatgamesmanager.web.app`. O deploy não é automático: rode `npm run deploy` depois de mergear na `main`.
-
-## Endpoints da API
-
-Todos exigem o header `Authorization: Bearer <Firebase ID token>`.
-
-Cada recurso tem `GET` (lista), `POST` (cria), `PUT /:id` (atualiza) e `DELETE /:id` (exclui):
-
-- `/api/games`
-- `/api/statuses`
-- `/api/platforms` (multipart: `name`, `image` opcional enviada ao Vercel Blob, `removeImage=true` para remover)
-- `/api/genres`
-- `/api/types`
-- `/api/scores` (o id é o próprio valor da nota; o valor não pode ser alterado)
-- `/api/difficulties`
-
-Exclusões de registros em uso retornam `409`. `POST /api/games/import` recebe `{ items, dryRun, indexes }`: com `dryRun: true` devolve a prévia; com `dryRun: false` grava as linhas de `indexes`. Também há `GET /api/search-games?q=...`, que busca jogos na API externa.
+O site fica em `https://beatgamesmanager.web.app`. A função de upload na Vercel é publicada automaticamente a cada push na `main`.
 
 ## Estrutura
 
-- `/src/app.js`: app Express, middleware de autenticação e montagem das rotas
-- `/src/routes/games.js`: CRUD de jogos (validação de referências)
-- `/src/routes/catalog.js`: CRUD genérico dos cadastros (unicidade, referências, bloqueio de exclusão em uso, imagens)
-- `/src/validation.js`: normalização e validação dos payloads
-- `/src/repository.js`: acesso ao Firestore e criação dos valores padrão por usuário
-- `/src/catalog.js`: status, escala de notas e dificuldades padrão
-- `/src/firebase.js`: inicialização do Firebase Admin (Auth + Firestore)
-- `/src/server.js`: bootstrap para execução local
-- `/public/js`: frontend em módulos ES (`main.js` navegação, `datatable.js` componente de tabela, `catalog-views.js` cadastros, `games-view.js` jogos, `dashboard.js`, `suggestions.js`, `auth.js` login com Firebase)
-- `/test`: testes automatizados
-- `/firebase.json`, `/.firebaserc`, `/firestore.indexes.json`: configuração do Firebase CLI
-- `/firestore.rules`: regras de segurança do Firestore
-- `/src/functions.js`: entrada do Cloud Functions
-- `/src/upload.js`: leitura de multipart (compatível com o `rawBody` do Cloud Functions)
+- `/public`: frontend (Firebase Hosting)
+  - `js/main.js`: navegação e login
+  - `js/data.js`: acesso ao Firestore (CRUDs, importação, valores padrão)
+  - `js/images.js`: cliente da função de upload
+  - `js/shared/`: validação, importador e constantes (também usados nos testes)
+  - `js/datatable.js`, `js/catalog-views.js`, `js/games-view.js`, `js/import-view.js`, `js/dashboard.js`, `js/suggestions.js`: telas e componentes
+- `/api/upload.js`: função serverless da Vercel (imagens no Blob)
+- `/server/verify-token.js`: verificação do token do Firebase usada pela função
+- `/server/dev.js`: servidor de desenvolvimento
+- `/firestore.rules`, `/firestore.indexes.json`, `/firebase.json`, `/.firebaserc`: configuração do Firebase
+- `/vercel.json`: redireciona tudo que não é `/api` para o Firebase Hosting
+- `/test`: testes unitários; `/rules-tests`: testes das regras (emulador)

@@ -19,9 +19,17 @@ const firebaseConfig = {
   appId: '1:592049010752:web:5a36320930a06df49947a5',
 };
 
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 auth.languageCode = 'pt';
+
+export function currentUserId() {
+  const uid = auth.currentUser?.uid;
+  if (!uid) {
+    throw new Error('Usuário não autenticado.');
+  }
+  return uid;
+}
 
 const ERROR_MESSAGES = {
   'auth/invalid-credential': 'E-mail ou senha incorretos.',
@@ -73,11 +81,5 @@ export async function apiFetch(url, options = {}) {
   const headers = new Headers(options.headers);
   headers.set('Authorization', `Bearer ${token}`);
 
-  const response = await fetch(url, { ...options, headers });
-
-  if (response.status === 401) {
-    await signOut(auth);
-  }
-
-  return response;
+  return fetch(url, { ...options, headers });
 }

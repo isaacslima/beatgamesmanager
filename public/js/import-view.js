@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { previewImport, runImport } from './data.js';
 import { findById, reload, sortedStatuses } from './store.js';
 import { escapeHtml, formatDate, formatPlayTime, scoreColor, toast } from './ui.js';
 
@@ -241,7 +241,7 @@ export function createImportPanel(root, { onClose }) {
     items = Array.isArray(parsed?.games) ? parsed.games : parsed;
 
     try {
-      const result = await api.post('/api/games/import', { items, dryRun: true });
+      const result = await previewImport(items);
       rows = result.rows;
       rows.filter((row) => row.valid && !row.duplicate).forEach((row) => selected.add(row.index));
       renderPreview(result.summary);
@@ -306,7 +306,7 @@ export function createImportPanel(root, { onClose }) {
     button.textContent = 'Importando...';
 
     try {
-      const counts = await api.post('/api/games/import', { items, dryRun: false, indexes: [...selected] });
+      const counts = await runImport(items, [...selected]);
       await reload('games', 'platforms', 'genres', 'types');
       const created = [
         counts.platforms && `${counts.platforms} plataforma(s)`,
