@@ -5,3 +5,6 @@ node_modules
 .DS_Store
 npm-debug.log*
 .env*
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
