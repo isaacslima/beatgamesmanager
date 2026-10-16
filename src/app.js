@@ -106,7 +106,8 @@ app.get('/api/games', async (req, res) => {
   try {
     const games = await listGames(req.user.uid);
     res.json(games);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Erro ao listar jogos.' });
   }
 });
@@ -129,7 +130,8 @@ app.post('/api/games', async (req, res) => {
     });
 
     return res.status(201).json(game);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao criar jogo.' });
   }
 });
@@ -153,7 +155,8 @@ app.put('/api/games/:id', async (req, res) => {
     }
 
     return res.json(game);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao atualizar jogo.' });
   }
 });
@@ -167,7 +170,8 @@ app.delete('/api/games/:id', async (req, res) => {
     }
 
     return res.status(204).send();
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao excluir jogo.' });
   }
 });
@@ -176,7 +180,8 @@ app.get('/api/platforms', async (req, res) => {
   try {
     const platforms = await listPlatforms(req.user.uid);
     res.json(platforms);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Erro ao listar plataformas.' });
   }
 });
@@ -206,6 +211,7 @@ app.post('/api/platforms', upload.single('image'), async (req, res) => {
       return res.status(409).json({ message: 'Já existe uma plataforma com esse nome.' });
     }
 
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao criar plataforma.' });
   }
 });
@@ -214,7 +220,8 @@ app.get('/api/stats', async (req, res) => {
   try {
     const stats = await getStats(req.user.uid);
     res.json(stats);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Erro ao carregar estatísticas.' });
   }
 });
@@ -245,7 +252,8 @@ app.get('/api/search-games', async (req, res) => {
     }));
 
     return res.json(result);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(502).json({ message: 'Erro ao conectar com a API de jogos.' });
   }
 });

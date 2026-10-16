@@ -6,7 +6,15 @@ const projectId = process.env.FIREBASE_PROJECT_ID || 'beatgamesmanager';
 
 function loadCredential() {
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    return cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT));
+    let serviceAccount;
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } catch (_error) {
+      throw new Error(
+        'FIREBASE_SERVICE_ACCOUNT inválida: use o conteúdo do JSON gerado em "Gerar nova chave privada", em uma linha.'
+      );
+    }
+    return cert(serviceAccount);
   }
 
   if (process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
