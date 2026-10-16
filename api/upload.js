@@ -10,6 +10,8 @@ const { getUserId } = require('../server/verify-token');
 const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // limite de corpo das funções da Vercel é 4,5 MB
 const ALLOWED_ORIGINS = ['https://beatgamesmanager.web.app', 'https://beatgamesmanager.firebaseapp.com'];
 const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+// Canais de pré-visualização do Firebase Hosting (firebase hosting:channel:deploy).
+const PREVIEW_ORIGIN = /^https:\/\/beatgamesmanager--[a-z0-9-]+\.web\.app$/;
 
 class HttpError extends Error {
   constructor(status, message) {
