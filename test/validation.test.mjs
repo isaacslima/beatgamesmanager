@@ -9,6 +9,7 @@ import {
   parseDifficulty,
   parseType,
   parseStatus,
+  parseTag,
 } from '../public/js/shared/validation.js';
 
 test('parsePlayTime aceita HH:MM:SS, HH:MM e horas decimais', () => {
@@ -107,4 +108,19 @@ test('parseType aceita gênero opcional', () => {
 test('normalizeKey ignora acentos, caixa e espaços extras', () => {
   assert.equal(normalizeKey('  Ação   RPG '), 'acao rpg');
   assert.equal(normalizeKey('NINTENDO Switch'), normalizeKey('nintendo switch'));
+});
+
+test('parseTag usa ícone e cor padrão quando inválidos', () => {
+  assert.deepEqual(parseTag({ name: ' Co-op ', icon: 'users', color: 'blue' }).data, { name: 'Co-op', icon: 'users', color: 'blue', description: '' });
+  const fallback = parseTag({ name: 'X', icon: 'nao-existe', color: 'neon' }).data;
+  assert.equal(fallback.icon, 'tag');
+  assert.equal(fallback.color, 'gray');
+  assert.ok(parseTag({ name: '' }).error);
+});
+
+test('parseGame normaliza tagIds e limita a quantidade', () => {
+  assert.deepEqual(parseGame({ title: 'X', status: 'planned' }).data.tagIds, []);
+  assert.deepEqual(parseGame({ title: 'X', status: 'planned', tagIds: ['a', 'a', '', 'b'] }).data.tagIds, ['a', 'b']);
+  assert.match(parseGame({ title: 'X', status: 'planned', tagIds: 'a' }).error, /lista/);
+  assert.match(parseGame({ title: 'X', status: 'planned', tagIds: Array.from({ length: 21 }, (_, i) => `t${i}`) }).error, /20 tags/);
 });

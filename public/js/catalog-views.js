@@ -2,6 +2,7 @@ import { removeCatalog, saveCatalog } from './data.js';
 import { PROTECTED_STATUS_IDS, STATUS_COLORS, statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
 import { openFormModal } from './form-modal.js';
+import { tagChip } from './tag-chip.js';
 import { store, reload, findById, countGamesBy } from './store.js';
 import { confirmDialog, escapeHtml, scoreColor, toast } from './ui.js';
 
@@ -22,11 +23,56 @@ const descriptionColumn = {
 
 const descriptionField = { name: 'description', label: 'Descrição', type: 'textarea' };
 
+function countGamesWithTag(tagId) {
+  return store.games.filter((game) => game.tagIds?.includes(tagId)).length;
+}
+
 function byName(a, b) {
   return a.name.localeCompare(b.name, 'pt-BR');
 }
 
 export const CATALOGS = {
+  tags: {
+    title: 'Tags',
+    singular: 'tag',
+    gender: 'f',
+    description: 'Etiquetas livres para os jogos (ex.: Co-op, Aconchegante, Difícil pra caramba), com ícone e cor.',
+    columns: [
+      { key: 'name', label: 'Tag', sortable: true, render: (row) => tagChip(row) },
+      descriptionColumn,
+      {
+        key: 'games',
+        label: 'Jogos',
+        sortable: true,
+        className: 'text-right w-24',
+        sortValue: (row) => countGamesWithTag(row.id),
+        render: (row) => String(countGamesWithTag(row.id)),
+      },
+    ],
+    defaultSort: { key: 'name', dir: 'asc' },
+    searchText: (row) => `${row.name} ${row.description}`,
+    fields: () => [
+      { name: 'name', label: 'Nome', required: true, maxlength: 40, placeholder: 'Ex.: Co-op' },
+      { name: 'icon', label: 'Ícone', type: 'icon' },
+      {
+        name: 'color',
+        label: 'Cor',
+        type: 'select',
+        placeholder: undefined,
+        options: () => STATUS_COLORS.map((color) => ({ value: color.value, label: color.label })),
+      },
+      descriptionField,
+    ],
+    defaults: () => ({ icon: 'tag', color: 'blue' }),
+    // Excluir uma tag a retira dos jogos.
+    deleteMessage: (row) => {
+      const count = countGamesWithTag(row.id);
+      return count
+        ? `Excluir a tag "${row.name}"? Ela será removida de ${count} jogo(s).`
+        : `Excluir a tag "${row.name}"?`;
+    },
+  },
+
   statuses: {
     title: 'Status',
     singular: 'status',
@@ -287,14 +333,15 @@ export function createCatalogView(name, root) {
         label: 'Excluir',
         onClick: async (row) => {
           const label = row.name || row.label;
-          const confirmed = await confirmDialog(`Excluir "${label}"? Essa ação não pode ser desfeita.`);
+          const message = catalog.deleteMessage?.(row) ?? `Excluir "${label}"? Essa ação não pode ser desfeita.`;
+          const confirmed = await confirmDialog(message);
           if (!confirmed) {
             return;
           }
 
           try {
             await removeCatalog(name, row);
-            await reload(name);
+            await reload(name, ...(catalog.deleteMessage ? ['games'] : []));
             toast('Registro excluído.');
           } catch (error) {
             toast(error.message, 'error');
