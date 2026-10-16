@@ -1,22 +1,11 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
-const multer = require('multer');
-const { put } = require('@vercel/blob');
-const { randomUUID } = require('node:crypto');
 const path = require('node:path');
 const { auth } = require('./firebase');
-const {
-  DuplicatePlatformError,
-  listGames,
-  createGame,
-  updateGame,
-  deleteGame,
-  listPlatforms,
-  createPlatform,
-  getStats,
-} = require('./db');
-
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const { ensureUserDefaults } = require('./repository');
+const { handle, HttpError } = require('./http');
+const { createCatalogRouter, CATALOG_COLLECTIONS } = require('./routes/catalog');
+const gamesRouter = require('./routes/games');
 
 const app = express();
 
@@ -40,222 +29,60 @@ async function requireAuth(req, res, next) {
 
   try {
     req.user = await auth.verifyIdToken(match[1]);
-    return next();
   } catch (_error) {
     return res.status(401).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
   }
+
+  try {
+    await ensureUserDefaults(req.user.uid);
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Erro ao preparar os dados do usuário.' });
+  }
+
+  return next();
 }
 
 app.use('/api', requireAuth);
 
-function normalizePayload(payload) {
-  return {
-    name: typeof payload.name === 'string' ? payload.name.trim() : '',
-    platform: typeof payload.platform === 'string' ? payload.platform.trim() : '',
-    emulatorName: typeof payload.emulatorName === 'string' ? payload.emulatorName.trim() : '',
-    totalPlayTimeHours:
-      payload.totalPlayTimeHours === '' || payload.totalPlayTimeHours === null || payload.totalPlayTimeHours === undefined
-        ? null
-        : Number(payload.totalPlayTimeHours),
-    startDate: typeof payload.startDate === 'string' ? payload.startDate : null,
-    endDate: typeof payload.endDate === 'string' ? payload.endDate : null,
-    notes: typeof payload.notes === 'string' ? payload.notes.trim() : '',
-    rating: payload.rating === '' || payload.rating === null || payload.rating === undefined
-      ? null
-      : Number(payload.rating),
-  };
-}
+app.use('/api/games', gamesRouter);
 
-function validatePayload(payload) {
-  if (!payload.name) {
-    return 'O nome do jogo é obrigatório.';
-  }
-
-  if (payload.platform === 'PC com emulador' && !payload.emulatorName) {
-    return 'Informe o nome do emulador quando a plataforma for PC com emulador.';
-  }
-
-  if (payload.totalPlayTimeHours !== null) {
-    if (Number.isNaN(payload.totalPlayTimeHours) || payload.totalPlayTimeHours < 0) {
-      return 'O tempo total jogado deve ser um número maior ou igual a zero.';
-    }
-  }
-
-  if (payload.rating !== null) {
-    if (Number.isNaN(payload.rating) || payload.rating < 0 || payload.rating > 10) {
-      return 'A nota deve estar entre 0 e 10.';
-    }
-  }
-
-  if (payload.startDate && Number.isNaN(Date.parse(payload.startDate))) {
-    return 'A data de início é inválida.';
-  }
-
-  if (payload.endDate && Number.isNaN(Date.parse(payload.endDate))) {
-    return 'A data de término é inválida.';
-  }
-
-  if (payload.platform !== 'PC com emulador') {
-    payload.emulatorName = '';
-  }
-
-  return null;
-}
-
-app.get('/api/games', async (req, res) => {
-  try {
-    const games = await listGames(req.user.uid);
-    res.json(games);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erro ao listar jogos.' });
-  }
+CATALOG_COLLECTIONS.forEach((collection) => {
+  app.use(`/api/${collection}`, createCatalogRouter(collection));
 });
 
-app.post('/api/games', async (req, res) => {
-  const payload = normalizePayload(req.body);
-  const validationError = validatePayload(payload);
+app.get(
+  '/api/search-games',
+  handle('Erro ao conectar com a API de jogos.', async (req, res) => {
+    const query = String(req.query.q || '').trim();
 
-  if (validationError) {
-    return res.status(400).json({ message: validationError });
-  }
-
-  try {
-    const now = new Date().toISOString();
-    const game = await createGame(req.user.uid, {
-      id: randomUUID(),
-      ...payload,
-      createdAt: now,
-      updatedAt: now,
-    });
-
-    return res.status(201).json(game);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Erro ao criar jogo.' });
-  }
-});
-
-app.put('/api/games/:id', async (req, res) => {
-  const payload = normalizePayload(req.body);
-  const validationError = validatePayload(payload);
-
-  if (validationError) {
-    return res.status(400).json({ message: validationError });
-  }
-
-  try {
-    const game = await updateGame(req.user.uid, req.params.id, {
-      ...payload,
-      updatedAt: new Date().toISOString(),
-    });
-
-    if (!game) {
-      return res.status(404).json({ message: 'Jogo não encontrado.' });
+    if (!query) {
+      throw new HttpError(400, 'Informe um termo para pesquisa.');
     }
 
-    return res.json(game);
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Erro ao atualizar jogo.' });
-  }
-});
-
-app.delete('/api/games/:id', async (req, res) => {
-  try {
-    const removed = await deleteGame(req.user.uid, req.params.id);
-
-    if (!removed) {
-      return res.status(404).json({ message: 'Jogo não encontrado.' });
-    }
-
-    return res.status(204).send();
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Erro ao excluir jogo.' });
-  }
-});
-
-app.get('/api/platforms', async (req, res) => {
-  try {
-    const platforms = await listPlatforms(req.user.uid);
-    res.json(platforms);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erro ao listar plataformas.' });
-  }
-});
-
-app.post('/api/platforms', upload.single('image'), async (req, res) => {
-  const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
-
-  if (!name) {
-    return res.status(400).json({ message: 'O nome da plataforma é obrigatório.' });
-  }
-
-  try {
-    let imageUrl = null;
-
-    if (req.file) {
-      const blob = await put(req.file.originalname, req.file.buffer, {
-        access: 'public',
-        addRandomSuffix: true,
-      });
-      imageUrl = blob.url;
-    }
-
-    const platform = await createPlatform(req.user.uid, { id: randomUUID(), name, imageUrl });
-    return res.status(201).json(platform);
-  } catch (error) {
-    if (error instanceof DuplicatePlatformError) {
-      return res.status(409).json({ message: 'Já existe uma plataforma com esse nome.' });
-    }
-
-    console.error(error);
-    return res.status(500).json({ message: 'Erro ao criar plataforma.' });
-  }
-});
-
-app.get('/api/stats', async (req, res) => {
-  try {
-    const stats = await getStats(req.user.uid);
-    res.json(stats);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Erro ao carregar estatísticas.' });
-  }
-});
-
-app.get('/api/search-games', async (req, res) => {
-  const query = String(req.query.q || '').trim();
-
-  if (!query) {
-    return res.status(400).json({ message: 'Informe um termo para pesquisa.' });
-  }
-
-  try {
     const response = await fetch(`https://www.cheapshark.com/api/1.0/games?title=${encodeURIComponent(query)}&limit=10`, {
       headers: { 'User-Agent': 'BeatGamesManager/1.0 (contato@iasolutions.tec.br)' },
     });
 
     if (!response.ok) {
-      return res.status(502).json({ message: 'Não foi possível consultar a API de jogos.' });
+      throw new HttpError(502, 'Não foi possível consultar a API de jogos.');
     }
 
     const data = await response.json();
-    const result = data.map((item) => ({
-      id: item.gameID,
-      title: item.external,
-      thumb: item.thumb,
-      steamAppID: item.steamAppID,
-      cheapestPriceEver: item.cheapest,
-    }));
+    res.json(
+      data.map((item) => ({
+        id: item.gameID,
+        title: item.external,
+        thumb: item.thumb,
+        steamAppID: item.steamAppID,
+        cheapestPriceEver: item.cheapest,
+      }))
+    );
+  })
+);
 
-    return res.json(result);
-  } catch (error) {
-    console.error(error);
-    return res.status(502).json({ message: 'Erro ao conectar com a API de jogos.' });
-  }
+app.use('/api', (_req, res) => {
+  res.status(404).json({ message: 'Rota não encontrada.' });
 });
 
 app.use((_req, res) => {
