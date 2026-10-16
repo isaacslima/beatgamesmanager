@@ -352,10 +352,115 @@ export const ICONS = {
   "percent": {
     "label": "Porcentagem",
     "svg": "<line x1=\"19\" x2=\"5\" y1=\"5\" y2=\"19\" /><circle cx=\"6.5\" cy=\"6.5\" r=\"2.5\" /><circle cx=\"17.5\" cy=\"17.5\" r=\"2.5\" />"
+  },
+  "layout-dashboard": {
+    "label": "layout-dashboard",
+    "svg": "<rect width=\"7\" height=\"9\" x=\"3\" y=\"3\" rx=\"1\" /><rect width=\"7\" height=\"5\" x=\"14\" y=\"3\" rx=\"1\" /><rect width=\"7\" height=\"9\" x=\"14\" y=\"12\" rx=\"1\" /><rect width=\"7\" height=\"5\" x=\"3\" y=\"16\" rx=\"1\" />"
+  },
+  "tags": {
+    "label": "tags",
+    "svg": "<path d=\"M13.172 2a2 2 0 0 1 1.414.586l6.71 6.71a2.4 2.4 0 0 1 0 3.408l-4.592 4.592a2.4 2.4 0 0 1-3.408 0l-6.71-6.71A2 2 0 0 1 6 9.172V3a1 1 0 0 1 1-1z\" /><path d=\"M2 7v6.172a2 2 0 0 0 .586 1.414l6.71 6.71a2.4 2.4 0 0 0 3.191.193\" /><circle cx=\"10.5\" cy=\"6.5\" r=\".5\" fill=\"currentColor\" />"
+  },
+  "shapes": {
+    "label": "shapes",
+    "svg": "<path d=\"M8.3 10a.7.7 0 0 1-.626-1.079L11.4 3a.7.7 0 0 1 1.198-.043L16.3 8.9a.7.7 0 0 1-.572 1.1Z\" /><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\" /><circle cx=\"17.5\" cy=\"17.5\" r=\"3.5\" />"
+  },
+  "list": {
+    "label": "list",
+    "svg": "<path d=\"M3 5h.01\" /><path d=\"M3 12h.01\" /><path d=\"M3 19h.01\" /><path d=\"M8 5h13\" /><path d=\"M8 12h13\" /><path d=\"M8 19h13\" />"
+  },
+  "chart-no-axes-column-increasing": {
+    "label": "chart-no-axes-column-increasing",
+    "svg": "<path d=\"M5 21v-6\" /><path d=\"M12 21V9\" /><path d=\"M19 21V3\" />"
+  },
+  "menu": {
+    "label": "menu",
+    "svg": "<path d=\"M4 5h16\" /><path d=\"M4 12h16\" /><path d=\"M4 19h16\" />"
+  },
+  "log-out": {
+    "label": "log-out",
+    "svg": "<path d=\"m16 17 5-5-5-5\" /><path d=\"M21 12H9\" /><path d=\"M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4\" />"
+  },
+  "chevron-down": {
+    "label": "chevron-down",
+    "svg": "<path d=\"m6 9 6 6 6-6\" />"
+  },
+  "chevron-left": {
+    "label": "chevron-left",
+    "svg": "<path d=\"m15 18-6-6 6-6\" />"
+  },
+  "chevron-right": {
+    "label": "chevron-right",
+    "svg": "<path d=\"m9 18 6-6-6-6\" />"
+  },
+  "upload": {
+    "label": "upload",
+    "svg": "<path d=\"M12 3v12\" /><path d=\"m17 8-5-5-5 5\" /><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" />"
+  },
+  "download": {
+    "label": "download",
+    "svg": "<path d=\"M12 15V3\" /><path d=\"M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4\" /><path d=\"m7 10 5 5 5-5\" />"
+  },
+  "plus": {
+    "label": "plus",
+    "svg": "<path d=\"M5 12h14\" /><path d=\"M12 5v14\" />"
+  },
+  "square-pen": {
+    "label": "square-pen",
+    "svg": "<path d=\"M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7\" /><path d=\"M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z\" />"
+  },
+  "trash-2": {
+    "label": "trash-2",
+    "svg": "<path d=\"M10 11v6\" /><path d=\"M14 11v6\" /><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\" /><path d=\"M3 6h18\" /><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\" />"
+  },
+  "x": {
+    "label": "x",
+    "svg": "<path d=\"M18 6 6 18\" /><path d=\"m6 6 12 12\" />"
+  },
+  "search": {
+    "label": "search",
+    "svg": "<path d=\"m21 21-4.34-4.34\" /><circle cx=\"11\" cy=\"11\" r=\"8\" />"
+  },
+  "triangle-alert": {
+    "label": "triangle-alert",
+    "svg": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\" /><path d=\"M12 9v4\" /><path d=\"M12 17h.01\" />"
+  },
+  "filter": {
+    "label": "filter",
+    "svg": "<path d=\"M10 20a1 1 0 0 0 .553.895l2 1A1 1 0 0 0 14 21v-7a2 2 0 0 1 .517-1.341L21.74 4.67A1 1 0 0 0 21 3H3a1 1 0 0 0-.742 1.67l7.225 7.989A2 2 0 0 1 10 14z\" />"
+  },
+  "check": {
+    "label": "check",
+    "svg": "<path d=\"M20 6 9 17l-5-5\" />"
+  },
+  "user-round": {
+    "label": "user-round",
+    "svg": "<circle cx=\"12\" cy=\"8\" r=\"5\" /><path d=\"M20 21a8 8 0 0 0-16 0\" />"
+  },
+  "house": {
+    "label": "house",
+    "svg": "<path d=\"M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8\" /><path d=\"M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\" />"
+  },
+  "pencil": {
+    "label": "pencil",
+    "svg": "<path d=\"M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z\" /><path d=\"m15 5 4 4\" />"
+  },
+  "square-check": {
+    "label": "square-check",
+    "svg": "<rect width=\"18\" height=\"18\" x=\"3\" y=\"3\" rx=\"2\" /><path d=\"m16 9-5.5 5.5L8 12\" />"
+  },
+  "circle-alert": {
+    "label": "circle-alert",
+    "svg": "<circle cx=\"12\" cy=\"12\" r=\"10\" /><line x1=\"12\" x2=\"12\" y1=\"8\" y2=\"12\" /><line x1=\"12\" x2=\"12.01\" y1=\"16\" y2=\"16\" />"
+  },
+  "info": {
+    "label": "info",
+    "svg": "<circle cx=\"12\" cy=\"12\" r=\"10\" /><path d=\"M12 16v-4\" /><path d=\"M12 8h.01\" />"
   }
 };
 
-export const ICON_NAMES = Object.keys(ICONS);
+// Ícones que podem ser escolhidos para as tags (os demais são só da interface).
+export const ICON_NAMES = ["tag","gamepad-2","joystick","trophy","medal","award","crown","star","sparkles","heart","heart-crack","flame","zap","swords","sword","shield","skull","ghost","bot","rocket","puzzle","brain","map","compass","footprints","mountain","castle","tree-pine","globe","car","plane","ship","anchor","flag","target","crosshair","timer","hourglass","clock","calendar","music","headphones","users","user","smile","laugh","frown","angry","eye","moon","sun","snowflake","leaf","fish","cat","dog","bug","cpu","monitor","smartphone","tv","wifi","lock","key","wand-sparkles","dices","gem","coins","gift","book-open","bookmark","film","camera","palette","hammer","wrench","flask-conical","baby","party-popper","thumbs-up","thumbs-down","repeat","infinity","circle-check","circle-pause","circle-x","list-checks","percent"];
 
 export const DEFAULT_ICON = 'tag';
 

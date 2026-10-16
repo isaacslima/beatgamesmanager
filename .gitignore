@@ -7,3 +7,6 @@ npm-debug.log*
 .firebase/
 firebase-debug.log*
 firestore-debug.log*
+
+# CSS gerado pelo Tailwind (npm run build:css)
+public/css/

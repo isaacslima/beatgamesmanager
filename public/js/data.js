@@ -20,6 +20,7 @@ import {
 import { app, currentUserId } from './auth.js';
 import { deleteImage, uploadImage } from './images.js';
 import { DEFAULT_DIFFICULTIES, DEFAULT_SCORES, DEFAULT_STATUSES, PROTECTED_STATUS_IDS } from './shared/catalog.js';
+import { planBulkUpdate } from './shared/bulk.js';
 import { buildImportWrites, planImport, summarize } from './shared/importer.js';
 import {
   normalizeKey,
@@ -328,6 +329,62 @@ export async function saveGame(values, existing = null) {
 
 export async function removeGame(id) {
   await guard(deleteDoc(doc(col('games'), id)));
+}
+
+// ---------- Operações em lote ----------
+
+async function commitInBatches(items, apply) {
+  for (let start = 0; start < items.length; start += 450) {
+    const batch = writeBatch(db);
+    items.slice(start, start + 450).forEach((item) => apply(batch, item));
+    await guard(batch.commit());
+  }
+}
+
+export async function removeGames(ids) {
+  await commitInBatches(ids, (batch, id) => batch.delete(doc(col('games'), id)));
+  return ids.length;
+}
+
+/** Exclui vários registros de um cadastro; os que estão em uso são mantidos e informados. */
+export async function removeCatalogMany(name, records) {
+  const failed = [];
+  let removed = 0;
+
+  for (const record of records) {
+    try {
+      await removeCatalog(name, record);
+      removed += 1;
+    } catch (error) {
+      failed.push({ record, message: error.message });
+    }
+  }
+
+  return { removed, failed };
+}
+
+/** Edição em lote de jogos. Retorna { updated, unchanged }. */
+export async function bulkUpdateGames(games, changes) {
+  const referenced = {};
+  GAME_REFERENCES.forEach((reference) => {
+    if (reference.field !== 'score' && changes[reference.field]) {
+      referenced[reference.field] = changes[reference.field];
+    }
+  });
+  await findReferences(GAME_REFERENCES, referenced);
+  await assertTagsExist(changes.addTagIds || []);
+
+  const { updates, errors, unchanged } = planBulkUpdate(games, changes, { types: await listRaw('types') });
+  if (errors.length) {
+    throw new Error(errors.join(' '));
+  }
+
+  const timestamp = now();
+  await commitInBatches(updates, (batch, update) => {
+    batch.update(doc(col('games'), update.id), { ...update.fields, updatedAt: timestamp });
+  });
+
+  return { updated: updates.length, unchanged };
 }
 
 // ---------- Importação ----------

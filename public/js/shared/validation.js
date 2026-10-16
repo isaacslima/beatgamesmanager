@@ -1,5 +1,5 @@
 import { MIN_SCORE, MAX_SCORE, MAX_TAGS_PER_GAME, STATUS_COLORS } from './catalog.js';
-import { DEFAULT_ICON, ICONS } from './icons.js';
+import { DEFAULT_ICON, ICON_NAMES } from './icons.js';
 
 function isBlank(value) {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -174,7 +174,7 @@ export function parseTag(body) {
     return { error: 'O nome da tag é obrigatório.' };
   }
 
-  const icon = typeof body.icon === 'string' && ICONS[body.icon] ? body.icon : DEFAULT_ICON;
+  const icon = ICON_NAMES.includes(body.icon) ? body.icon : DEFAULT_ICON;
   const color = STATUS_COLORS.includes(body.color) ? body.color : 'gray';
   return { data: { name, icon, color, description: text(body.description, 500) } };
 }

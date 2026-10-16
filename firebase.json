@@ -36,6 +36,9 @@
           }
         ]
       }
+    ],
+    "predeploy": [
+      "npm run build:css"
     ]
   },
   "emulators": {

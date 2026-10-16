@@ -1,11 +1,13 @@
+import { iconSvg } from './shared/icons.js';
 import { store, findById } from './store.js';
+import { isDark } from './theme.js';
 import { escapeHtml, formatDate, scoreColor } from './ui.js';
 
 const CARDS = [
-  { id: 'total', label: 'Total de jogos', color: 'bg-blue-50 text-blue-600', icon: '<rect x="2" y="6" width="20" height="12" rx="3" />' },
-  { id: 'platforms', label: 'Plataformas cadastradas', color: 'bg-indigo-50 text-indigo-600', icon: '<path d="M12 3l9 6-9 6-9-6 9-6zM3 15l9 6 9-6" stroke-linejoin="round" />' },
-  { id: 'completed', label: 'Jogos zerados', color: 'bg-emerald-50 text-emerald-600', icon: '<path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />', status: 'completed' },
-  { id: 'wishlist', label: 'Lista de desejo', color: 'bg-purple-50 text-purple-600', icon: '<path d="M12 21s-7-4.4-9.5-9A5.5 5.5 0 0112 5.6 5.5 5.5 0 0121.5 12C19 16.6 12 21 12 21z" stroke-linejoin="round" />', status: 'wishlist' },
+  { id: 'total', label: 'Total de jogos', icon: 'gamepad-2', color: 'bg-primary-100 text-primary-600 dark:bg-primary-900 dark:text-primary-300' },
+  { id: 'platforms', label: 'Plataformas cadastradas', icon: 'monitor', color: 'bg-purple-100 text-purple-600 dark:bg-purple-900 dark:text-purple-300' },
+  { id: 'completed', label: 'Jogos zerados', icon: 'circle-check', color: 'bg-green-100 text-green-600 dark:bg-green-900 dark:text-green-300', status: 'completed' },
+  { id: 'wishlist', label: 'Lista de desejo', icon: 'heart', color: 'bg-pink-100 text-pink-600 dark:bg-pink-900 dark:text-pink-300', status: 'wishlist' },
 ];
 
 const charts = {};
@@ -16,53 +18,57 @@ function renderChart(id, config) {
   charts[id] = new window.Chart(canvas, config);
 }
 
-const baseOptions = {
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: { legend: { display: false } },
-};
+// Cores dos eixos/grade de acordo com o tema (paleta do Flowbite).
+function chartTheme() {
+  return isDark()
+    ? { text: '#9ca3af', grid: '#374151', primary: '#3b82f6' }
+    : { text: '#6b7280', grid: '#e5e7eb', primary: '#1d4ed8' };
+}
+
+function baseOptions({ horizontal = false } = {}) {
+  const theme = chartTheme();
+  const valueAxis = { beginAtZero: true, ticks: { precision: 0, color: theme.text }, grid: { color: theme.grid }, border: { display: false } };
+  const categoryAxis = { ticks: { color: theme.text, font: { family: 'Inter' } }, grid: { display: false }, border: { display: false } };
+
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    indexAxis: horizontal ? 'y' : 'x',
+    plugins: { legend: { display: false } },
+    scales: horizontal ? { x: valueAxis, y: categoryAxis } : { x: categoryAxis, y: valueAxis },
+  };
+}
+
+const chartPanel = (id, title, label, height, extraClass = '', counterRole = '') => `
+  <div class="panel ${extraClass}">
+    <div class="mb-4 flex items-baseline justify-between gap-2">
+      <h2 class="text-lg font-semibold text-gray-900 dark:text-white">${title}</h2>
+      ${counterRole ? `<span data-role="${counterRole}" class="muted"></span>` : ''}
+    </div>
+    <div class="relative ${height}"><canvas id="${id}" aria-label="${label}" role="img"></canvas></div>
+  </div>`;
 
 export function createDashboard(root, { onFilterByStatus }) {
   root.innerHTML = `
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+    <div class="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
       ${CARDS.map(
         (card) => `
-          <${card.status ? 'button type="button"' : 'div'} data-card="${card.id}" class="panel flex items-center gap-4 text-left ${card.status ? 'hover:border-blue-300 transition-colors' : ''}">
-            <span class="flex items-center justify-center w-12 h-12 rounded-full ${card.color}">
-              <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${card.icon}</svg>
-            </span>
+          <${card.status ? 'button type="button"' : 'div'} data-card="${card.id}" class="panel flex items-center justify-between gap-4 text-left ${card.status ? 'transition hover:border-primary-300 hover:shadow-md dark:hover:border-primary-700' : ''}">
             <span>
-              <span data-label class="block text-sm text-gray-500">${card.label}</span>
-              <span data-value class="block text-2xl font-bold">0</span>
+              <span data-label class="mb-1 block text-sm font-normal text-gray-500 dark:text-gray-400">${card.label}</span>
+              <span data-value class="block text-2xl leading-none font-bold text-gray-900 sm:text-3xl dark:text-white">0</span>
             </span>
+            <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${card.color}">${iconSvg(card.icon, 'h-6 w-6')}</span>
           </${card.status ? 'button' : 'div'}>`
       ).join('')}
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <div class="panel lg:row-span-2">
-        <div class="flex items-baseline justify-between gap-2 mb-4">
-          <h2 class="panel-title mb-0">Distribuição por nota</h2>
-          <span data-role="rated" class="text-sm text-gray-500"></span>
-        </div>
-        <div class="relative h-[26rem]"><canvas id="chart-scores" aria-label="Gráfico de jogos por nota" role="img"></canvas></div>
-      </div>
-
-      <div class="panel">
-        <div class="flex items-baseline justify-between gap-2 mb-4">
-          <h2 class="panel-title mb-0">Distribuição por dificuldade</h2>
-          <span data-role="with-difficulty" class="text-sm text-gray-500"></span>
-        </div>
-        <div class="relative h-48"><canvas id="chart-difficulties" aria-label="Gráfico de jogos por dificuldade" role="img"></canvas></div>
-      </div>
-
-      <div class="panel">
-        <h2 class="panel-title">Top plataformas</h2>
-        <div class="relative h-48"><canvas id="chart-platforms" aria-label="Gráfico das plataformas mais usadas" role="img"></canvas></div>
-      </div>
-
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      ${chartPanel('chart-scores', 'Distribuição por nota', 'Gráfico de jogos por nota', 'h-[26rem]', 'lg:row-span-2', 'rated')}
+      ${chartPanel('chart-difficulties', 'Distribuição por dificuldade', 'Gráfico de jogos por dificuldade', 'h-48', '', 'with-difficulty')}
+      ${chartPanel('chart-platforms', 'Top plataformas', 'Gráfico das plataformas mais usadas', 'h-48')}
       <div class="panel lg:col-span-2">
-        <h2 class="panel-title">Meus GOTY</h2>
+        <h2 class="mb-4 text-lg font-semibold text-gray-900 dark:text-white">Meus GOTY</h2>
         <div data-role="goty"></div>
       </div>
     </div>
@@ -79,6 +85,7 @@ export function createDashboard(root, { onFilterByStatus }) {
 
   function render() {
     const games = store.games;
+    const theme = chartTheme();
 
     setCard('total', games.length);
     setCard('platforms', store.platforms.length);
@@ -93,7 +100,6 @@ export function createDashboard(root, { onFilterByStatus }) {
 
     // Notas: 11 (Jogo da vida) até 1 (Tragédia)
     const scores = [...store.scores].sort((a, b) => b.value - a.value);
-    const scoreCounts = scores.map((score) => games.filter((game) => game.score === score.value).length);
     const rated = games.filter((game) => game.score !== null).length;
     root.querySelector('[data-role="rated"]').textContent = `${rated} jogo(s) avaliado(s)`;
 
@@ -101,13 +107,16 @@ export function createDashboard(root, { onFilterByStatus }) {
       type: 'bar',
       data: {
         labels: scores.map((score) => `${score.value} - ${score.label}`),
-        datasets: [{ label: 'Jogos', data: scoreCounts, backgroundColor: scores.map((score) => scoreColor(score.value)), borderRadius: 4 }],
+        datasets: [
+          {
+            label: 'Jogos',
+            data: scores.map((score) => games.filter((game) => game.score === score.value).length),
+            backgroundColor: scores.map((score) => scoreColor(score.value)),
+            borderRadius: 4,
+          },
+        ],
       },
-      options: {
-        ...baseOptions,
-        indexAxis: 'y',
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
-      },
+      options: baseOptions({ horizontal: true }),
     });
 
     // Dificuldade: C até AAA
@@ -115,6 +124,10 @@ export function createDashboard(root, { onFilterByStatus }) {
     const withDifficulty = games.filter((game) => game.difficultyId && findById('difficulties', game.difficultyId)).length;
     root.querySelector('[data-role="with-difficulty"]').textContent = `${withDifficulty} jogo(s)`;
 
+    const difficultyOptions = baseOptions();
+    difficultyOptions.plugins.tooltip = {
+      callbacks: { title: (items) => `${difficulties[items[0].dataIndex].key} — ${difficulties[items[0].dataIndex].label}` },
+    };
     renderChart('chart-difficulties', {
       type: 'bar',
       data: {
@@ -123,19 +136,12 @@ export function createDashboard(root, { onFilterByStatus }) {
           {
             label: 'Jogos',
             data: difficulties.map((item) => games.filter((game) => game.difficultyId === item.id).length),
-            backgroundColor: difficulties.map((_item, index) => `hsl(${220 - index * (180 / Math.max(1, difficulties.length - 1))} 70% 50%)`),
+            backgroundColor: difficulties.map((_item, index) => `hsl(${220 - index * (180 / Math.max(1, difficulties.length - 1))} 70% 52%)`),
             borderRadius: 4,
           },
         ],
       },
-      options: {
-        ...baseOptions,
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } }, x: { grid: { display: false } } },
-        plugins: {
-          ...baseOptions.plugins,
-          tooltip: { callbacks: { title: (items) => `${difficulties[items[0].dataIndex].key} — ${difficulties[items[0].dataIndex].label}` } },
-        },
-      },
+      options: difficultyOptions,
     });
 
     // Top 7 plataformas
@@ -149,13 +155,9 @@ export function createDashboard(root, { onFilterByStatus }) {
       type: 'bar',
       data: {
         labels: platformCounts.map((item) => item.name),
-        datasets: [{ label: 'Jogos', data: platformCounts.map((item) => item.count), backgroundColor: '#2563eb', borderRadius: 4 }],
+        datasets: [{ label: 'Jogos', data: platformCounts.map((item) => item.count), backgroundColor: theme.primary, borderRadius: 4 }],
       },
-      options: {
-        ...baseOptions,
-        indexAxis: 'y',
-        scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } },
-      },
+      options: baseOptions({ horizontal: true }),
     });
 
     const goty = games
@@ -163,24 +165,31 @@ export function createDashboard(root, { onFilterByStatus }) {
       .sort((a, b) => String(b.endDate || b.startDate || '').localeCompare(String(a.endDate || a.startDate || '')));
 
     root.querySelector('[data-role="goty"]').innerHTML = goty.length
-      ? `<ul class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+      ? `<ul class="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
           ${goty
             .map((game) => {
               const date = game.endDate || game.startDate;
               const platform = findById('platforms', game.platformId)?.name;
               return `
-                <li class="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                  <span class="text-amber-500 text-lg" aria-hidden="true">★</span>
+                <li class="flex items-center gap-3 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 dark:border-yellow-900/60 dark:bg-yellow-900/20">
+                  <span class="text-yellow-500" aria-hidden="true">${iconSvg('trophy', 'h-5 w-5')}</span>
                   <span class="min-w-0">
-                    <span class="block font-medium text-gray-900 truncate">${escapeHtml(game.title)}</span>
-                    <span class="block text-xs text-gray-500">${escapeHtml([platform, findById('statuses', game.status)?.name, date ? formatDate(date) : null].filter(Boolean).join(' · '))}</span>
+                    <span class="block truncate font-medium text-gray-900 dark:text-white">${escapeHtml(game.title)}</span>
+                    <span class="block text-xs text-gray-500 dark:text-gray-400">${escapeHtml([platform, findById('statuses', game.status)?.name, date ? formatDate(date) : null].filter(Boolean).join(' · '))}</span>
                   </span>
                 </li>`;
             })
             .join('')}
         </ul>`
-      : '<p class="text-sm text-gray-500">Nenhum jogo marcado como GOTY ainda. Marque "Destaque / GOTY" no cadastro do jogo.</p>';
+      : '<p class="muted">Nenhum jogo marcado como GOTY ainda. Marque "Destaque / GOTY" no cadastro do jogo.</p>';
   }
+
+  // Redesenha os gráficos com as cores do novo tema, se o dashboard estiver visível.
+  window.addEventListener('themechange', () => {
+    if (!root.classList.contains('hidden')) {
+      render();
+    }
+  });
 
   return { render };
 }

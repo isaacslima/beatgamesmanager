@@ -1,4 +1,5 @@
-import { removeCatalog, saveCatalog } from './data.js';
+import { removeCatalog, removeCatalogMany, saveCatalog } from './data.js';
+import { iconSvg } from './shared/icons.js';
 import { PROTECTED_STATUS_IDS, STATUS_COLORS, statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
 import { openFormModal } from './form-modal.js';
@@ -120,8 +121,8 @@ export const CATALOGS = {
         className: 'w-14',
         render: (row) =>
           row.imageUrl
-            ? `<img src="${escapeHtml(row.imageUrl)}" alt="" class="w-9 h-9 object-cover rounded-lg border border-gray-200" />`
-            : '<span class="inline-flex w-9 h-9 rounded-lg bg-gray-100"></span>',
+            ? `<img src="${escapeHtml(row.imageUrl)}" alt="" class="h-9 w-9 rounded-lg border border-gray-200 object-cover dark:border-gray-600" />`
+            : '<span class="inline-flex w-9 h-9 rounded-lg bg-gray-100 dark:bg-gray-700"></span>',
       },
       { key: 'name', label: 'Nome', sortable: true, render: (row) => `<span class="font-medium">${escapeHtml(row.name)}</span>` },
       gamesColumn('platformId'),
@@ -135,7 +136,7 @@ export const CATALOGS = {
             {
               type: 'html',
               name: '_preview',
-              html: `<img src="${escapeHtml(record.imageUrl)}" alt="Imagem atual" class="w-16 h-16 object-cover rounded-lg border border-gray-200" />`,
+              html: `<img src="${escapeHtml(record.imageUrl)}" alt="Imagem atual" class="h-16 w-16 rounded-lg border border-gray-200 object-cover dark:border-gray-600" />`,
             },
             { name: 'removeImage', label: 'Remover imagem atual', type: 'checkbox' },
           ]
@@ -304,21 +305,9 @@ export async function openCatalogForm(name, record = null) {
 export function createCatalogView(name, root) {
   const catalog = CATALOGS[name];
   const text = words(catalog);
+  const reloadAfterDelete = () => reload(name, ...(catalog.deleteMessage ? ['games'] : []));
 
-  root.innerHTML = `
-    <div class="panel">
-      <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
-        <div>
-          <h2 class="panel-title mb-1">${escapeHtml(catalog.title)}</h2>
-          <p class="text-sm text-gray-500">${escapeHtml(catalog.description)}</p>
-        </div>
-        <button type="button" data-role="create" class="btn-primary">+ ${text.new} ${escapeHtml(catalog.singular)}</button>
-      </div>
-      <div data-role="table"></div>
-    </div>
-  `;
-
-  const table = createDataTable(root.querySelector('[data-role="table"]'), {
+  const table = createDataTable(root, {
     columns: catalog.columns,
     getRows: () => store[name],
     searchText: catalog.searchText,
@@ -326,6 +315,34 @@ export function createCatalogView(name, root) {
     filters: catalog.filters || [],
     defaultSort: catalog.defaultSort,
     emptyMessage: text.none,
+    itemLabel: 'registro(s)',
+    toolbarEnd: `<button type="button" data-role="create" class="btn-primary">${iconSvg('plus', 'h-4 w-4')} ${text.new} ${escapeHtml(catalog.singular)}</button>`,
+    selectable: true,
+    bulkActions: [
+      {
+        id: 'delete',
+        label: 'Excluir selecionados',
+        icon: 'trash-2',
+        variant: 'danger',
+        onClick: async (rows) => {
+          if (!(await confirmDialog(`Excluir ${rows.length} registro(s)? Registros em uso por jogos serão mantidos.`))) {
+            return;
+          }
+
+          const { removed, failed } = await removeCatalogMany(name, rows);
+          await reloadAfterDelete();
+          table.clearSelection();
+
+          if (removed) {
+            toast(`${removed} registro(s) excluído(s).`);
+          }
+          if (failed.length) {
+            const names = failed.map(({ record }) => record.name || record.label).join(', ');
+            toast(`${failed.length} não excluído(s) por estarem em uso ou protegidos: ${names}.`, 'error');
+          }
+        },
+      },
+    ],
     actions: [
       { id: 'edit', label: 'Editar', onClick: (row) => openCatalogForm(name, row) },
       {
@@ -334,14 +351,13 @@ export function createCatalogView(name, root) {
         onClick: async (row) => {
           const label = row.name || row.label;
           const message = catalog.deleteMessage?.(row) ?? `Excluir "${label}"? Essa ação não pode ser desfeita.`;
-          const confirmed = await confirmDialog(message);
-          if (!confirmed) {
+          if (!(await confirmDialog(message))) {
             return;
           }
 
           try {
             await removeCatalog(name, row);
-            await reload(name, ...(catalog.deleteMessage ? ['games'] : []));
+            await reloadAfterDelete();
             toast('Registro excluído.');
           } catch (error) {
             toast(error.message, 'error');

@@ -124,8 +124,8 @@ export function attachConditionSuggestions(input, getContext) {
         .map(
           (item, index) => `
             <li role="option" data-index="${index}" aria-selected="false">
-              <span class="block text-sm text-gray-900">${escapeHtml(item.text)}</span>
-              <span class="block text-xs text-gray-500">${escapeHtml(describe(item))}</span>
+              <span class="block text-sm text-gray-900 dark:text-white">${escapeHtml(item.text)}</span>
+              <span class="block text-xs text-gray-500 dark:text-gray-400">${escapeHtml(describe(item))}</span>
             </li>`
         )
         .join('')}
