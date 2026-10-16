@@ -11,6 +11,7 @@ function catalogs() {
     platforms: [{ id: 'p-n64', name: 'Nintendo 64' }],
     genres: [{ id: 'g-rpg', name: 'RPG' }, { id: 'g-plat', name: 'Plataforma' }],
     types: [{ id: 't-arpg', name: 'Ação RPG', genreId: 'g-rpg' }],
+    tags: [{ id: 'tag-coop', name: 'Co-op' }],
     scores: [{ value: 11 }, { value: 9 }],
     difficulties: [{ id: 'b', key: 'B', label: 'Médio' }],
     games: [{ id: 'old', title: 'Super Mario 64', platformId: 'p-n64' }],
@@ -81,11 +82,11 @@ test('cria apenas os cadastros novos usados pelas linhas selecionadas', () => {
     catalogs()
   );
 
-  assert.deepEqual(summarize(plan).toCreate, { platforms: ['Switch', 'PC'], genres: ['Simulação'], types: ['Vida'] });
+  assert.deepEqual(summarize(plan).toCreate, { platforms: ['Switch', 'PC'], genres: ['Simulação'], types: ['Vida'], tags: [] });
 
   let next = 0;
   const { writes, counts } = buildImportWrites(plan, new Set([0, 1]), { newId: () => `id${++next}`, now: 1_700_000_000_000 });
-  assert.deepEqual(counts, { games: 2, platforms: 1, genres: 1, types: 1 });
+  assert.deepEqual(counts, { games: 2, platforms: 1, genres: 1, types: 1, tags: 0 });
 
   const byName = (name) => writes.filter((write) => write.name === name);
   const [platform] = byName('platforms');
@@ -99,4 +100,35 @@ test('cria apenas os cadastros novos usados pelas linhas selecionadas', () => {
   assert.equal(games[0].data.typeId, type.id);
   assert.ok(games[0].data.createdAt > games[1].data.createdAt, 'primeiro do arquivo fica no topo');
   assert.ok(!writes.some((write) => write.data.name === 'PC'), 'não cria cadastro de linha não selecionada');
+});
+
+test('tags: aceita lista ou texto, reaproveita existentes e cria as novas', () => {
+  const plan = planImport(
+    [
+      { title: 'It Takes Two', status: 'Zerado', tags: ['co-op', 'Aconchegante', 'aconchegante'] },
+      { title: 'Stardew Valley', status: 'Zerado', tags: 'Aconchegante, Fazenda' },
+      { title: 'Ruim', status: 'Zerado', tags: 42 },
+    ],
+    catalogs()
+  );
+
+  const [first, second, third] = plan.rows;
+  assert.equal(first.valid, true, first.errors.join());
+  assert.equal(first.data.tagIds.length, 2, 'remove repetidas');
+  assert.equal(first.data.tagIds[0], 'tag-coop', 'reaproveita tag existente');
+  assert.match(first.warnings.join(), /Tag "Aconchegante" será criada/);
+  assert.deepEqual(second.preview.tags.map((tag) => tag.name), ['Aconchegante', 'Fazenda']);
+  assert.match(third.errors[0], /tags/);
+  assert.deepEqual(summarize(plan).toCreate.tags, ['Aconchegante', 'Fazenda']);
+
+  let next = 0;
+  const { writes, counts } = buildImportWrites(plan, new Set([0, 1]), { newId: () => `id${++next}` });
+  assert.equal(counts.tags, 2);
+  const created = writes.filter((write) => write.name === 'tags');
+  assert.deepEqual(created.map((write) => [write.data.name, write.data.icon, write.data.color]), [
+    ['Aconchegante', 'tag', 'gray'],
+    ['Fazenda', 'tag', 'gray'],
+  ]);
+  const games = writes.filter((write) => write.name === 'games');
+  assert.deepEqual(games[1].data.tagIds, [created[0].id, created[1].id], 'reaproveita a tag criada pela linha anterior');
 });

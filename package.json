@@ -14,7 +14,8 @@
     "firebase:login": "firebase login",
     "deploy:hosting": "firebase deploy --only hosting",
     "emulators": "firebase emulators:start --only hosting",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-beatgames-rules \"node --test rules-tests/firestore-rules.mjs\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-beatgames-rules \"node --test rules-tests/firestore-rules.mjs\"",
+    "build:icons": "node scripts/build-icons.mjs"
   },
   "repository": {
     "type": "git",
@@ -32,6 +33,7 @@
     "@firebase/rules-unit-testing": "^5.0.2",
     "express": "^5.2.1",
     "firebase": "^12.19.0",
-    "firebase-tools": "~15.32.1"
+    "firebase-tools": "~15.32.1",
+    "lucide-static": "^1.49.0"
   }
 }

@@ -1,6 +1,7 @@
 import { previewImport, runImport } from './data.js';
-import { findById, reload, sortedStatuses } from './store.js';
-import { escapeHtml, formatDate, formatPlayTime, scoreColor, toast } from './ui.js';
+import { findById, reload, sortedStatuses, store } from './store.js';
+import { tagChip } from './tag-chip.js';
+import { escapeHtml, formatDate, formatPlayTime, normalizeText, scoreColor, toast } from './ui.js';
 
 const FIELDS = [
   ['title', 'Sim', 'Nome do jogo.'],
@@ -14,6 +15,7 @@ const FIELDS = [
   ['score', 'Não', 'Nota inteira de 1 a 11 (precisa existir na tabela de notas).'],
   ['difficulty', 'Não', 'Chave (C, B, A, AA, AAA) ou nome da dificuldade.'],
   ['completionCondition', 'Não', 'Condição de zeramento (texto livre).'],
+  ['tags', 'Não', 'Lista de nomes (["Co-op", "Aconchegante"]) ou texto separado por vírgulas. Tags novas são criadas.'],
   ['isGoty', 'Não', 'true para marcar como GOTY.'],
   ['notes', 'Não', 'Observações.'],
 ];
@@ -36,6 +38,7 @@ export function exampleGames() {
       score: 11,
       difficulty: 'B',
       completionCondition: 'Conquiste as 70 estrelas',
+      tags: ['Clássico', 'Coletável'],
       isGoty: true,
       notes: 'Exemplo com todos os campos.',
     },
@@ -47,6 +50,7 @@ export function exampleGames() {
       type: 'JRPG',
       playTime: '32,5',
       difficulty: 'Médio',
+      tags: 'Clássico, Viagem no tempo',
     },
     {
       title: 'Hollow Knight: Silksong',
@@ -69,6 +73,12 @@ function downloadExample() {
 
 const newTag = '<span class="ml-1 rounded bg-blue-50 px-1 text-[10px] font-semibold uppercase text-blue-700">novo</span>';
 const dash = '<span class="text-gray-400">-</span>';
+
+// Tag já cadastrada aparece com ícone e cor; tag nova, com o selo "novo".
+function previewTag(tag) {
+  const existing = store.tags.find((item) => normalizeText(item.name) === normalizeText(tag.name));
+  return existing && !tag.isNew ? tagChip(existing) : `<span class="tag-chip bg-gray-100 text-gray-600">${escapeHtml(tag.name)}${newTag}</span>`;
+}
 
 function refCell(name, isNew) {
   return name ? `${escapeHtml(name)}${isNew ? newTag : ''}` : dash;
@@ -160,7 +170,12 @@ export function createImportPanel(root, { onClose }) {
   }
 
   function renderPreview(summary) {
-    const toCreate = Object.entries({ Plataformas: summary.toCreate.platforms, Gêneros: summary.toCreate.genres, Tipos: summary.toCreate.types })
+    const toCreate = Object.entries({
+      Plataformas: summary.toCreate.platforms,
+      Gêneros: summary.toCreate.genres,
+      Tipos: summary.toCreate.types,
+      Tags: summary.toCreate.tags,
+    })
       .filter(([, names]) => names.length)
       .map(([label, names]) => `<li><strong>${label}:</strong> ${names.map(escapeHtml).join(', ')}</li>`)
       .join('');
@@ -180,7 +195,7 @@ export function createImportPanel(root, { onClose }) {
             <tr>
               <th class="w-10"><input type="checkbox" data-role="select-all" class="w-4 h-4 accent-blue-600" aria-label="Selecionar todos os válidos" /></th>
               <th>#</th><th>Nome</th><th>Status</th><th>Plataforma</th><th>Gênero / Tipo</th>
-              <th>Início</th><th>Término</th><th>Tempo</th><th>Nota</th><th>Dific.</th><th>Mensagens</th>
+              <th>Tags</th><th>Início</th><th>Término</th><th>Tempo</th><th>Nota</th><th>Dific.</th><th>Mensagens</th>
             </tr>
           </thead>
           <tbody>
@@ -200,6 +215,7 @@ export function createImportPanel(root, { onClose }) {
                     <td>${p.status ? escapeHtml(p.status) : dash}</td>
                     <td>${refCell(p.platform, p.platformNew)}</td>
                     <td>${refCell(p.genre, p.genreNew)}${p.type ? `<span class="block text-xs text-gray-500">${refCell(p.type, p.typeNew)}</span>` : ''}</td>
+                    <td>${p.tags?.length ? `<span class="flex flex-wrap gap-1">${p.tags.map(previewTag).join('')}</span>` : dash}</td>
                     <td class="whitespace-nowrap">${formatDate(p.startDate)}</td>
                     <td class="whitespace-nowrap">${formatDate(p.endDate)}</td>
                     <td class="whitespace-nowrap tabular-nums">${p.playTimeSeconds === null ? dash : formatPlayTime(p.playTimeSeconds)}</td>
@@ -307,11 +323,12 @@ export function createImportPanel(root, { onClose }) {
 
     try {
       const counts = await runImport(items, [...selected]);
-      await reload('games', 'platforms', 'genres', 'types');
+      await reload('games', 'platforms', 'genres', 'types', 'tags');
       const created = [
         counts.platforms && `${counts.platforms} plataforma(s)`,
         counts.genres && `${counts.genres} gênero(s)`,
         counts.types && `${counts.types} tipo(s)`,
+        counts.tags && `${counts.tags} tag(s)`,
       ].filter(Boolean);
       toast(`${counts.games} jogo(s) importado(s).${created.length ? ` Criados: ${created.join(', ')}.` : ''}`);
       reset();

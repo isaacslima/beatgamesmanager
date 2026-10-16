@@ -1,4 +1,5 @@
-import { escapeHtml, optionsHtml } from './ui.js';
+import { DEFAULT_ICON, ICON_NAMES, ICONS, iconSvg } from './shared/icons.js';
+import { escapeHtml, normalizeText, optionsHtml } from './ui.js';
 
 let modalCount = 0;
 
@@ -30,6 +31,26 @@ function fieldHtml(field, value, prefix) {
 
   if (field.type === 'select') {
     return `<div class="field">${label}<select id="${id}" name="${field.name}" class="input-field"${required}>${optionsHtml(field.options(), value, 'placeholder' in field ? field.placeholder : 'Selecione')}</select>${hint}</div>`;
+  }
+
+  if (field.type === 'icon') {
+    const selected = value || DEFAULT_ICON;
+    return `
+      <div class="field" data-icon-field>
+        <span class="block text-sm font-medium text-gray-700 mb-1.5">${escapeHtml(field.label)}</span>
+        <input type="search" data-icon-search class="input-field mb-2" placeholder="Buscar ícone (ex.: troféu, espada, co-op)..." aria-label="Buscar ícone" />
+        <div class="icon-grid" role="radiogroup" aria-label="${escapeHtml(field.label)}">
+          ${ICON_NAMES.map(
+            (name) => `
+              <label class="icon-option" title="${escapeHtml(ICONS[name].label)}" data-icon-label="${escapeHtml(normalizeText(`${ICONS[name].label} ${name}`))}">
+                <input type="radio" name="${field.name}" value="${name}" class="sr-only"${name === selected ? ' checked' : ''} />
+                <span>${iconSvg(name, 'w-5 h-5')}<span class="sr-only">${escapeHtml(ICONS[name].label)}</span></span>
+              </label>`
+          ).join('')}
+        </div>
+        <p data-icon-empty class="hidden text-xs text-gray-500 mt-2">Nenhum ícone encontrado.</p>
+        ${hint}
+      </div>`;
   }
 
   if (field.type === 'file') {
@@ -90,6 +111,29 @@ export function openFormModal({ title, fields, values = {}, onSubmit, submitLabe
     overlay.addEventListener('mousedown', (event) => {
       if (event.target === overlay) {
         close(null);
+      }
+    });
+
+    // Busca no seletor de ícones.
+    form.addEventListener('input', (event) => {
+      if (!event.target.matches('[data-icon-search]')) {
+        return;
+      }
+      const container = event.target.closest('[data-icon-field]');
+      const terms = normalizeText(event.target.value).split(' ').filter(Boolean);
+      let visible = 0;
+      container.querySelectorAll('[data-icon-label]').forEach((option) => {
+        const show = terms.every((term) => option.dataset.iconLabel.includes(term));
+        option.classList.toggle('hidden', !show);
+        visible += show ? 1 : 0;
+      });
+      container.querySelector('[data-icon-empty]').classList.toggle('hidden', visible > 0);
+    });
+
+    // Enter na busca de ícone não deve enviar o formulário.
+    form.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && event.target.matches('[data-icon-search]')) {
+        event.preventDefault();
       }
     });
 

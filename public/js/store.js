@@ -1,6 +1,6 @@
 import { list } from './data.js';
 
-export const COLLECTIONS = ['games', 'statuses', 'platforms', 'genres', 'types', 'scores', 'difficulties'];
+export const COLLECTIONS = ['games', 'statuses', 'tags', 'platforms', 'genres', 'types', 'scores', 'difficulties'];
 
 export const store = Object.fromEntries(COLLECTIONS.map((name) => [name, []]));
 

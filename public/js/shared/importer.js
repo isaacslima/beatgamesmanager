@@ -7,7 +7,24 @@ const NEW_LABELS = {
   platforms: (name) => `Plataforma "${name}" será criada.`,
   genres: (name) => `Gênero "${name}" será criado.`,
   types: (name) => `Tipo "${name}" será criado.`,
+  tags: (name) => `Tag "${name}" será criada.`,
 };
+
+// "tags" pode vir como lista de nomes ou texto separado por vírgulas.
+function tagNames(value) {
+  const list = Array.isArray(value) ? value : typeof value === 'string' ? value.split(',') : [];
+  const seen = new Set();
+  return list
+    .map(textValue)
+    .filter((name) => {
+      const key = normalizeKey(name);
+      if (!key || seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
+}
 
 function textValue(value) {
   if (typeof value === 'string') {
@@ -65,13 +82,14 @@ export function planImport(items, catalogs) {
     platforms: indexBy(catalogs.platforms, 'name'),
     genres: indexBy(catalogs.genres, 'name'),
     types: indexBy(catalogs.types, 'name'),
+    tags: indexBy(catalogs.tags || [], 'name'),
     difficulties: indexBy(catalogs.difficulties, 'key', 'label'),
   };
   const genreById = new Map(catalogs.genres.map((genre) => [genre.id, genre]));
   const scoreValues = new Set(catalogs.scores.map((score) => score.value));
   const existingGames = new Set(catalogs.games.map((game) => gameKey(game.title ?? game.name, game.platformId)));
   const seenInFile = new Map();
-  const toCreate = { platforms: new Map(), genres: new Map(), types: new Map() };
+  const toCreate = { platforms: new Map(), genres: new Map(), types: new Map(), tags: new Map() };
 
   function resolve(kind, value) {
     const name = textValue(value);
@@ -117,6 +135,11 @@ export function planImport(items, catalogs) {
       }
     }
 
+    if (item.tags !== undefined && item.tags !== null && !Array.isArray(item.tags) && typeof item.tags !== 'string') {
+      errors.push('O campo "tags" deve ser uma lista de nomes ou um texto separado por vírgulas.');
+    }
+    const tags = tagNames(item.tags).map((name) => resolve('tags', name));
+
     const difficultyName = textValue(item.difficulty);
     const difficulty = difficultyName ? indexes.difficulties.get(normalizeKey(difficultyName)) : null;
     if (difficultyName && !difficulty) {
@@ -142,6 +165,7 @@ export function planImport(items, catalogs) {
       completionCondition: item.completionCondition,
       isGoty: item.isGoty,
       notes: item.notes,
+      tagIds: tags.map((tag) => tag.id),
     });
 
     if (error) {
@@ -152,6 +176,7 @@ export function planImport(items, catalogs) {
       ['platforms', platform],
       ['genres', genre],
       ['types', type],
+      ...tags.map((tag) => ['tags', tag]),
     ].forEach(([kind, ref]) => {
       if (ref?.isNew) {
         warnings.push(NEW_LABELS[kind](ref.name));
@@ -183,6 +208,11 @@ export function planImport(items, catalogs) {
       if (type?.isNew && !toCreate.types.has(type.key)) {
         toCreate.types.set(type.key, { name: type.name, genreId: genre?.id ?? null });
       }
+      tags.forEach((tag) => {
+        if (tag.isNew && !toCreate.tags.has(tag.key)) {
+          toCreate.tags.set(tag.key, { name: tag.name });
+        }
+      });
     }
 
     return {
@@ -209,6 +239,7 @@ export function planImport(items, catalogs) {
         difficulty: difficulty?.key ?? null,
         completionCondition: data?.completionCondition ?? '',
         isGoty: Boolean(data?.isGoty),
+        tags: tags.map((tag) => ({ name: tag.name, isNew: tag.isNew })),
       },
     };
   });
@@ -235,7 +266,7 @@ export function buildImportWrites(plan, selectedIndexes, { newId = () => crypto.
   const createdAt = new Date(now).toISOString();
   const idMap = new Map();
   const writes = [];
-  const counts = { games: 0, platforms: 0, genres: 0, types: 0 };
+  const counts = { games: 0, platforms: 0, genres: 0, types: 0, tags: 0 };
 
   function ensure(id) {
     if (!id || !id.startsWith('new:')) {
@@ -258,6 +289,10 @@ export function buildImportWrites(plan, selectedIndexes, { newId = () => crypto.
     } else {
       data.description = '';
     }
+    if (kind === 'tags') {
+      data.icon = 'tag';
+      data.color = 'gray';
+    }
     if (kind === 'types') {
       data.genreId = ensure(entry.genreId);
     }
@@ -273,6 +308,7 @@ export function buildImportWrites(plan, selectedIndexes, { newId = () => crypto.
       platformId: ensure(row.data.platformId),
       genreId: ensure(row.data.genreId),
       typeId: ensure(row.data.typeId),
+      tagIds: row.data.tagIds.map(ensure),
     };
     // O primeiro do arquivo fica como o mais recente, para aparecer no topo da lista.
     const timestamp = new Date(now - position).toISOString();

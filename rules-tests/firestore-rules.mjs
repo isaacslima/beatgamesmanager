@@ -119,6 +119,8 @@ test('documento do usuário só aceita a versão dos padrões', async () => {
   const db = alice();
   await assertSucceeds(setDoc(doc(db, 'users/alice'), { defaultsVersion: 2, defaultsSeededAt: now }));
   await assertFails(setDoc(doc(db, 'users/alice'), { defaultsVersion: 2, admin: true }));
+  await assertFails(deleteDoc(doc(bob(), 'users/alice')));
+  await assertSucceeds(deleteDoc(doc(db, 'users/alice')));
 });
 
 test('importação em lote de muitos jogos passa pelas regras', async () => {
@@ -129,4 +131,18 @@ test('importação em lote de muitos jogos passa pelas regras', async () => {
   }
   batch.set(doc(db, 'users/alice/platforms/nova'), { name: 'Nova', imageUrl: null, ...stamps });
   await assertSucceeds(batch.commit());
+});
+
+test('tags: valida ícone e cor; jogo aceita lista de até 20 tags', async () => {
+  const db = alice();
+  const tag = { name: 'Co-op', icon: 'users', color: 'blue', description: '', ...stamps };
+  await assertSucceeds(setDoc(doc(db, 'users/alice/tags/t1'), tag));
+  await assertFails(setDoc(doc(db, 'users/alice/tags/t2'), { ...tag, icon: '<svg onload=alert(1)>' }));
+  await assertFails(setDoc(doc(db, 'users/alice/tags/t3'), { ...tag, color: 'neon' }));
+  await assertFails(setDoc(doc(db, 'users/alice/tags/t4'), { ...tag, name: 'x'.repeat(41) }));
+  await assertFails(getDoc(doc(bob(), 'users/alice/tags/t1')));
+
+  await assertSucceeds(setDoc(doc(db, 'users/alice/games/g1'), game({ tagIds: ['t1'] })));
+  await assertFails(setDoc(doc(db, 'users/alice/games/g2'), game({ tagIds: 't1' })));
+  await assertFails(setDoc(doc(db, 'users/alice/games/g3'), game({ tagIds: Array.from({ length: 21 }, (_, i) => `t${i}`) })));
 });

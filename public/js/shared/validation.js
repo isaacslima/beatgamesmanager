@@ -1,4 +1,5 @@
-import { MIN_SCORE, MAX_SCORE, STATUS_COLORS } from './catalog.js';
+import { MIN_SCORE, MAX_SCORE, MAX_TAGS_PER_GAME, STATUS_COLORS } from './catalog.js';
+import { DEFAULT_ICON, ICONS } from './icons.js';
 
 function isBlank(value) {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -149,6 +150,35 @@ export function parseStatus(body) {
   return { data: { name, color, order, description: text(body.description, 500) } };
 }
 
+// Aceita lista de ids; remove vazios e repetidos.
+export function parseTagIds(value) {
+  if (value === null || value === undefined || value === '') {
+    return { value: [] };
+  }
+
+  if (!Array.isArray(value)) {
+    return { error: 'As tags devem ser uma lista.' };
+  }
+
+  const ids = [...new Set(value.map(optionalId).filter(Boolean))];
+  if (ids.length > MAX_TAGS_PER_GAME) {
+    return { error: `Um jogo pode ter no máximo ${MAX_TAGS_PER_GAME} tags.` };
+  }
+
+  return { value: ids };
+}
+
+export function parseTag(body) {
+  const name = text(body.name, 40);
+  if (!name) {
+    return { error: 'O nome da tag é obrigatório.' };
+  }
+
+  const icon = typeof body.icon === 'string' && ICONS[body.icon] ? body.icon : DEFAULT_ICON;
+  const color = STATUS_COLORS.includes(body.color) ? body.color : 'gray';
+  return { data: { name, icon, color, description: text(body.description, 500) } };
+}
+
 export function parseGame(body) {
   const title = text(body.title, 200);
   if (!title) {
@@ -184,6 +214,11 @@ export function parseGame(body) {
     return { error: `A nota deve ser um número inteiro de ${MIN_SCORE} a ${MAX_SCORE}.` };
   }
 
+  const tags = parseTagIds(body.tagIds);
+  if (tags.error) {
+    return tags;
+  }
+
   return {
     data: {
       title,
@@ -199,6 +234,7 @@ export function parseGame(body) {
       completionCondition: text(body.completionCondition, 300),
       isGoty: toBoolean(body.isGoty),
       notes: text(body.notes, 2000),
+      tagIds: tags.value,
     },
   };
 }

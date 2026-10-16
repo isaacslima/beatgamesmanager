@@ -7,8 +7,9 @@ A especificação completa está em [`docs/especifica_o_de_features_beat_games.m
 
 - **Dashboard**: cards de totais (jogos, plataformas, zerados, lista de desejo), gráficos por nota (11 a 1), por dificuldade (C a AAA), top plataformas e lista dos jogos GOTY.
 - **Jogos**: DataTable com busca, filtros (plataforma, gênero, status, período e GOTY), ordenação por coluna e paginação.
-- **Cadastros** com CRUD e DataTable próprios: Status (nome, cor e ordem editáveis), Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
-- **Campos do jogo**: nome, plataforma, gênero, tipo, status, data de início e término (opcionais), tempo total (`HH:MM:SS`, `HH:MM` ou horas decimais), nota, dificuldade, condição de zeramento, destaque/GOTY e observações.
+- **Cadastros** com CRUD e DataTable próprios: Status (nome, cor e ordem editáveis), Tags (com ícone e cor), Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
+- **Campos do jogo**: nome, plataforma, gênero, tipo, status, data de início e término (opcionais), tempo total (`HH:MM:SS`, `HH:MM` ou horas decimais), nota, dificuldade, condição de zeramento, tags (opcionais, até 20), destaque/GOTY e observações.
+- **Tags**: etiquetas livres com ícone (seletor com busca) e cor, exibidas na lista de jogos e usadas como filtro. Excluir uma tag a retira dos jogos.
 - **Condição de zeramento com sugestões**: ao focar ou digitar no campo, o sistema sugere condições já usadas no seu histórico, priorizando jogos do mesmo tipo, gênero e plataforma, além de exemplos padrão.
 - **Integridade**: não é possível excluir status, plataforma, gênero, tipo, nota ou dificuldade em uso por algum jogo.
 - **Importação via JSON** (Jogos > Importar JSON): baixe o exemplo, selecione o arquivo e confira a prévia linha a linha (erros, possíveis duplicados e cadastros que serão criados) antes de confirmar. Plataformas, gêneros e tipos são informados pelo nome e criados se não existirem; status, dificuldade e nota precisam já estar cadastrados.
@@ -36,8 +37,9 @@ Estrutura no Firestore:
 ```
 users/{uid}                       defaultsVersion, defaultsSeededAt
 users/{uid}/games/{gameId}        title, platformId, genreId, typeId, status, startDate, endDate,
-                                  playTimeSeconds, score, difficultyId, completionCondition, isGoty, notes
+                                  playTimeSeconds, score, difficultyId, completionCondition, isGoty, notes, tagIds
 users/{uid}/statuses/{id}         name, color, order, description
+users/{uid}/tags/{id}             name, icon, color, description
 users/{uid}/platforms/{id}        name, imageUrl
 users/{uid}/genres/{id}           name, description
 users/{uid}/types/{id}            name, genreId (opcional), description
@@ -81,6 +83,7 @@ npm run dev     # http://localhost:3000: frontend + /api/upload local, usando o 
 - `npm start` / `npm run dev`: servidor local (com watch no `dev`)
 - `npm test`: testes automatizados (validação, importação e sugestões)
 - `npm run test:rules`: testa as regras do Firestore no emulador (requer Java)
+- `npm run build:icons`: regenera `public/js/shared/icons.js` a partir do Lucide
 - `npm run emulators`: emulador do Hosting
 - `npm run firebase:login`: autentica o Firebase CLI (uma vez por máquina)
 - `npm run deploy`: publica no Firebase o Hosting e as regras/índices do Firestore
@@ -94,6 +97,10 @@ npm run deploy           # Firebase Hosting + regras do Firestore
 ```
 
 O site fica em `https://beatgamesmanager.web.app`. A função de upload na Vercel é publicada automaticamente a cada push na `main`.
+
+## Ícones
+
+Os ícones das tags vêm do [Lucide](https://lucide.dev) (licença ISC), pelo pacote `lucide-static`. Para manter o site leve, só uma seleção temática (cerca de 90 ícones, ~6 KB comprimidos) vai para `public/js/shared/icons.js`. Para adicionar ícones, inclua o nome (veja em lucide.dev) e um rótulo em português em `scripts/build-icons.mjs` e rode `npm run build:icons`.
 
 ## Estrutura
 

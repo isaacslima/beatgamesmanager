@@ -48,7 +48,7 @@ service cloud.firestore {
       return data.keys().hasOnly([
           'title', 'platformId', 'genreId', 'typeId', 'status', 'startDate', 'endDate',
           'playTimeSeconds', 'score', 'difficultyId', 'completionCondition', 'isGoty', 'notes',
-          'createdAt', 'updatedAt'
+          'tagIds', 'createdAt', 'updatedAt'
         ])
         && text(data.title, 1, 200)
         && text(data.status, 1, 128)
@@ -64,6 +64,7 @@ service cloud.firestore {
         && optionalText(data, 'completionCondition', 300)
         && optionalText(data, 'notes', 2000)
         && (!('isGoty' in data) || data.isGoty is bool)
+        && (!('tagIds' in data) || (data.tagIds is list && data.tagIds.size() <= 20))
         && hasTimestamps(data);
     }
 
@@ -86,6 +87,15 @@ service cloud.firestore {
       return data.keys().hasOnly(['name', 'genreId', 'description', 'createdAt', 'updatedAt'])
         && text(data.name, 1, 80)
         && optionalId(data, 'genreId')
+        && optionalText(data, 'description', 500)
+        && hasTimestamps(data);
+    }
+
+    function validTag(data) {
+      return data.keys().hasOnly(['name', 'icon', 'color', 'description', 'createdAt', 'updatedAt'])
+        && text(data.name, 1, 40)
+        && text(data.icon, 1, 40) && data.icon.matches('^[a-z0-9-]+$')
+        && data.color in ['purple', 'blue', 'cyan', 'emerald', 'amber', 'orange', 'red', 'pink', 'gray']
         && optionalText(data, 'description', 500)
         && hasTimestamps(data);
     }
@@ -119,7 +129,7 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read: if isOwner(uid);
+      allow read, delete: if isOwner(uid);
       allow create, update: if isOwner(uid) && validUser(request.resource.data);
 
       match /games/{id} {
@@ -140,6 +150,11 @@ service cloud.firestore {
       match /types/{id} {
         allow read, delete: if isOwner(uid);
         allow create, update: if isOwner(uid) && validType(request.resource.data);
+      }
+
+      match /tags/{id} {
+        allow read, delete: if isOwner(uid);
+        allow create, update: if isOwner(uid) && validTag(request.resource.data);
       }
 
       match /statuses/{id} {

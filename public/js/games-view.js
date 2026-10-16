@@ -5,12 +5,17 @@ import { createDataTable } from './datatable.js';
 import { createImportPanel } from './import-view.js';
 import { store, reload, findById, findScore, sortedStatuses } from './store.js';
 import { attachConditionSuggestions } from './suggestions.js';
+import { tagChip } from './tag-chip.js';
 import { confirmDialog, escapeHtml, formatDate, formatPlayTime, optionsHtml, scoreColor, toast } from './ui.js';
 
 const STAR = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.3l-6.2 3.7 1.6-7-5.4-4.7 7.1-.6L12 2l2.9 6.7 7.1.6-5.4 4.7 1.6 7z"/></svg>';
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
 const dash = '<span class="text-gray-400">-</span>';
+
+function gameTags(game) {
+  return (game.tagIds || []).map((id) => findById('tags', id)).filter(Boolean).sort(byName);
+}
 
 export function statusBadge(status) {
   const item = findById('statuses', status);
@@ -127,6 +132,14 @@ const FORM_HTML = `
         </div>
 
         <div class="field sm:col-span-2">
+          <div class="flex items-center justify-between gap-2 mb-1.5">
+            <span id="game-tags-label" class="text-sm font-medium text-gray-700">Tags</span>
+            <button type="button" data-quick-add="tags" class="btn-secondary px-3 py-1 text-sm" title="Nova tag" aria-label="Nova tag">+ Nova tag</button>
+          </div>
+          <div data-role="tag-options" class="flex flex-wrap gap-2" role="group" aria-labelledby="game-tags-label"></div>
+        </div>
+
+        <div class="field sm:col-span-2">
           <label for="game-notes">Observações</label>
           <textarea id="game-notes" name="notes" rows="3" maxlength="2000" class="input-field"></textarea>
         </div>
@@ -182,11 +195,12 @@ export function createGamesView(root) {
   const formTitle = root.querySelector('[data-role="form-title"]');
   const formError = root.querySelector('[data-role="form-error"]');
   const fields = form.elements;
+  const tagOptions = root.querySelector('[data-role="tag-options"]');
   let editingId = null;
 
   const table = createDataTable(root.querySelector('[data-role="table"]'), {
     getRows: () => store.games,
-    searchText: (game) => `${game.title} ${game.completionCondition} ${game.notes}`,
+    searchText: (game) => `${game.title} ${game.completionCondition} ${game.notes} ${gameTags(game).map((tag) => tag.name).join(' ')}`,
     searchPlaceholder: 'Buscar por nome, condição ou observação...',
     defaultSort: null,
     columns: [
@@ -199,7 +213,8 @@ export function createGamesView(root) {
             ${game.isGoty ? `<span class="text-amber-500" title="GOTY - meu jogo do ano">${STAR}</span>` : ''}
             ${escapeHtml(game.title)}
           </span>
-          ${game.completionCondition ? `<span class="block text-xs text-gray-500">${escapeHtml(game.completionCondition)}</span>` : ''}`,
+          ${game.completionCondition ? `<span class="block text-xs text-gray-500">${escapeHtml(game.completionCondition)}</span>` : ''}
+          ${gameTags(game).length ? `<span class="flex flex-wrap gap-1 mt-1">${gameTags(game).map((tag) => tagChip(tag)).join('')}</span>` : ''}`,
       },
       {
         key: 'platform',
@@ -270,6 +285,13 @@ export function createGamesView(root) {
         predicate: (game, value) => game.status === value,
       },
       { id: 'period', label: 'Período', type: 'date-range', predicate: overlapsPeriod },
+      {
+        id: 'tag',
+        label: 'Tag',
+        type: 'select',
+        options: () => [...store.tags].sort(byName).map((item) => ({ value: item.id, label: item.name })),
+        predicate: (game, value) => game.tagIds.includes(value),
+      },
       { id: 'goty', label: 'Só GOTY', type: 'checkbox', predicate: (game) => game.isGoty },
     ],
     actions: [
@@ -331,6 +353,20 @@ export function createGamesView(root) {
       values.score,
       'Sem nota'
     );
+
+    const selectedTags = new Set(values.tagIds || []);
+    const tags = [...store.tags].sort(byName);
+    tagOptions.innerHTML = tags.length
+      ? tags
+          .map(
+            (tag) => `
+              <label class="tag-toggle">
+                <input type="checkbox" name="tagIds" value="${escapeHtml(tag.id)}" class="sr-only"${selectedTags.has(tag.id) ? ' checked' : ''} />
+                ${tagChip(tag)}
+              </label>`
+          )
+          .join('')
+      : '<p class="text-sm text-gray-500">Nenhuma tag cadastrada. Use "+ Nova tag" ou o menu Cadastros &gt; Tags.</p>';
   }
 
   function currentValues() {
@@ -348,6 +384,7 @@ export function createGamesView(root) {
       completionCondition: fields.completionCondition.value,
       notes: fields.notes.value,
       isGoty: fields.isGoty.checked,
+      tagIds: [...tagOptions.querySelectorAll('input[name="tagIds"]:checked')].map((input) => input.value),
     };
   }
 
@@ -418,8 +455,13 @@ export function createGamesView(root) {
       const collection = button.dataset.quickAdd;
       const saved = await openCatalogForm(collection);
       if (saved) {
+        const values = currentValues();
+        if (collection === 'tags') {
+          populateSelects({ ...values, tagIds: [...values.tagIds, saved.id] });
+          return;
+        }
         const field = { platforms: 'platformId', genres: 'genreId', types: 'typeId' }[collection];
-        populateSelects({ ...currentValues(), [field]: saved.id, ...(saved.genreId && collection === 'types' ? { genreId: saved.genreId } : {}) });
+        populateSelects({ ...values, [field]: saved.id, ...(saved.genreId && collection === 'types' ? { genreId: saved.genreId } : {}) });
       }
     });
   });

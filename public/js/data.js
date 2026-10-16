@@ -13,6 +13,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  arrayRemove,
   where,
   writeBatch,
 } from 'https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js';
@@ -28,6 +29,7 @@ import {
   parsePlatform,
   parseScore,
   parseStatus,
+  parseTag,
   parseType,
 } from './shared/validation.js';
 
@@ -36,6 +38,15 @@ const db = getFirestore(app);
 const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
 
 const DEFINITIONS = {
+  tags: {
+    parse: parseTag,
+    uniqueField: 'name',
+    uniqueMessage: 'Já existe uma tag com esse nome.',
+    // Excluir uma tag a retira dos jogos (não bloqueia).
+    detachFrom: { collection: 'games', field: 'tagIds' },
+    dependents: [],
+    sort: byName,
+  },
   statuses: {
     parse: parseStatus,
     uniqueField: 'name',
@@ -158,6 +169,7 @@ function toGame(record) {
     completionCondition: record.completionCondition ?? '',
     isGoty: record.isGoty === true,
     notes: record.notes ?? '',
+    tagIds: Array.isArray(record.tagIds) ? record.tagIds : [],
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,
   };
@@ -242,6 +254,19 @@ export async function saveCatalog(name, values, existing = null) {
   return record;
 }
 
+async function detachEverywhere({ collection: name, field }, id) {
+  const snapshot = await guard(getDocs(query(col(name), where(field, 'array-contains', id))));
+  const timestamp = now();
+
+  for (let start = 0; start < snapshot.docs.length; start += 450) {
+    const batch = writeBatch(db);
+    snapshot.docs.slice(start, start + 450).forEach((item) => {
+      batch.update(item.ref, { [field]: arrayRemove(id), updatedAt: timestamp });
+    });
+    await guard(batch.commit());
+  }
+}
+
 export async function removeCatalog(name, record) {
   const definition = DEFINITIONS[name];
 
@@ -259,6 +284,10 @@ export async function removeCatalog(name, record) {
     }
   }
 
+  if (definition.detachFrom) {
+    await detachEverywhere(definition.detachFrom, record.id);
+  }
+
   await guard(deleteDoc(doc(col(name), record.id)));
 
   if (definition.image) {
@@ -268,9 +297,18 @@ export async function removeCatalog(name, record) {
 
 // ---------- Jogos ----------
 
+async function assertTagsExist(tagIds) {
+  const snapshots = await guard(Promise.all(tagIds.map((id) => getDoc(doc(col('tags'), id)))));
+  if (snapshots.some((snapshot) => !snapshot.exists())) {
+    throw new Error('Tag não encontrada.');
+  }
+}
+
 export async function saveGame(values, existing = null) {
   const data = parseOrThrow(parseGame, values);
   const found = await findReferences(GAME_REFERENCES, data);
+
+  await assertTagsExist(data.tagIds);
 
   const type = found.get('types');
   if (type?.genreId) {
@@ -295,7 +333,7 @@ export async function removeGame(id) {
 // ---------- Importação ----------
 
 async function loadImportCatalogs() {
-  const names = ['statuses', 'platforms', 'genres', 'types', 'scores', 'difficulties', 'games'];
+  const names = ['statuses', 'platforms', 'genres', 'types', 'tags', 'scores', 'difficulties', 'games'];
   const results = await Promise.all(names.map((name) => listRaw(name)));
   const catalogs = Object.fromEntries(names.map((name, index) => [name, results[index]]));
   catalogs.games = catalogs.games.map(toGame);

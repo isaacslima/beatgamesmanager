@@ -11,6 +11,8 @@ export const DEFAULT_STATUSES = [
   { id: 'dropped', name: 'Dropado', color: 'gray', order: 4 },
 ];
 
+export const MAX_TAGS_PER_GAME = 20;
+
 export const PROTECTED_STATUS_IDS = ['wishlist', 'completed'];
 
 export const DEFAULT_SCORES = [
