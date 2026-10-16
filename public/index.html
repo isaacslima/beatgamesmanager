@@ -9,7 +9,49 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
-    <div class="flex min-h-screen">
+    <div id="auth-loading" class="min-h-screen flex items-center justify-center text-gray-500">Carregando...</div>
+
+    <div id="auth-view" class="hidden min-h-screen flex items-center justify-center p-4">
+      <div class="panel w-full max-w-sm">
+        <div class="flex items-center gap-2 mb-6">
+          <span class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">B</span>
+          <span class="font-semibold text-lg">Beat Games</span>
+        </div>
+
+        <h2 id="auth-title" class="panel-title">Entrar</h2>
+
+        <button type="button" id="google-login-btn" class="btn-secondary w-full mb-4">Entrar com Google</button>
+
+        <div class="flex items-center gap-2 mb-4 text-sm text-gray-400">
+          <span class="flex-1 border-t border-gray-200"></span>
+          ou
+          <span class="flex-1 border-t border-gray-200"></span>
+        </div>
+
+        <form id="auth-form">
+          <div class="field">
+            <label for="auth-email">E-mail</label>
+            <input id="auth-email" type="email" required autocomplete="email" class="input-field" />
+          </div>
+
+          <div class="field">
+            <label for="auth-password">Senha</label>
+            <input id="auth-password" type="password" required minlength="6" autocomplete="current-password" class="input-field" />
+          </div>
+
+          <p id="auth-error" class="hidden text-sm text-red-600 mb-3"></p>
+
+          <button type="submit" id="auth-submit" class="btn-primary w-full">Entrar</button>
+        </form>
+
+        <div class="flex justify-between mt-4 text-sm">
+          <button type="button" id="auth-toggle-mode" class="text-blue-600 hover:underline">Criar conta</button>
+          <button type="button" id="auth-reset-password" class="text-gray-500 hover:underline">Esqueci a senha</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="app-view" class="hidden flex min-h-screen">
       <aside class="w-64 bg-white border-r border-gray-200 fixed inset-y-0 left-0 flex flex-col p-4">
         <div class="flex items-center gap-2 px-2 py-3">
           <span class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">B</span>
@@ -34,6 +76,11 @@
             Jogos
           </button>
         </nav>
+
+        <div class="mt-auto border-t border-gray-200 pt-4 px-2">
+          <p id="user-email" class="text-sm text-gray-500 truncate mb-2"></p>
+          <button type="button" id="logout-btn" class="btn-secondary w-full text-sm">Sair</button>
+        </div>
       </aside>
 
       <div class="flex-1 ml-64">
@@ -233,6 +280,6 @@
       </div>
     </div>
 
-    <script src="/app.js"></script>
+    <script type="module" src="/app.js"></script>
   </body>
 </html>

@@ -4,8 +4,9 @@ const multer = require('multer');
 const { put } = require('@vercel/blob');
 const { randomUUID } = require('node:crypto');
 const path = require('node:path');
+const { auth } = require('./firebase');
 const {
-  initDatabase,
+  DuplicatePlatformError,
   listGames,
   createGame,
   updateGame,
@@ -30,22 +31,22 @@ app.use(
   })
 );
 
-let startupError = null;
-const startupPromise = initDatabase().catch((error) => {
-  startupError = error;
-});
+async function requireAuth(req, res, next) {
+  const match = /^Bearer (.+)$/.exec(req.headers.authorization || '');
 
-app.use(async (_req, res, next) => {
-  try {
-    await startupPromise;
-    if (startupError) {
-      return res.status(500).json({ message: 'Erro ao inicializar banco de dados.' });
-    }
-    next();
-  } catch (_error) {
-    res.status(500).json({ message: 'Erro ao inicializar banco de dados.' });
+  if (!match) {
+    return res.status(401).json({ message: 'Autenticação necessária.' });
   }
-});
+
+  try {
+    req.user = await auth.verifyIdToken(match[1]);
+    return next();
+  } catch (_error) {
+    return res.status(401).json({ message: 'Sessão inválida ou expirada. Faça login novamente.' });
+  }
+}
+
+app.use('/api', requireAuth);
 
 function normalizePayload(payload) {
   return {
@@ -101,11 +102,12 @@ function validatePayload(payload) {
   return null;
 }
 
-app.get('/api/games', async (_req, res) => {
+app.get('/api/games', async (req, res) => {
   try {
-    const games = await listGames();
+    const games = await listGames(req.user.uid);
     res.json(games);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Erro ao listar jogos.' });
   }
 });
@@ -120,7 +122,7 @@ app.post('/api/games', async (req, res) => {
 
   try {
     const now = new Date().toISOString();
-    const game = await createGame({
+    const game = await createGame(req.user.uid, {
       id: randomUUID(),
       ...payload,
       createdAt: now,
@@ -128,7 +130,8 @@ app.post('/api/games', async (req, res) => {
     });
 
     return res.status(201).json(game);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao criar jogo.' });
   }
 });
@@ -142,7 +145,7 @@ app.put('/api/games/:id', async (req, res) => {
   }
 
   try {
-    const game = await updateGame(req.params.id, {
+    const game = await updateGame(req.user.uid, req.params.id, {
       ...payload,
       updatedAt: new Date().toISOString(),
     });
@@ -152,30 +155,33 @@ app.put('/api/games/:id', async (req, res) => {
     }
 
     return res.json(game);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao atualizar jogo.' });
   }
 });
 
 app.delete('/api/games/:id', async (req, res) => {
   try {
-    const removed = await deleteGame(req.params.id);
+    const removed = await deleteGame(req.user.uid, req.params.id);
 
     if (!removed) {
       return res.status(404).json({ message: 'Jogo não encontrado.' });
     }
 
     return res.status(204).send();
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao excluir jogo.' });
   }
 });
 
-app.get('/api/platforms', async (_req, res) => {
+app.get('/api/platforms', async (req, res) => {
   try {
-    const platforms = await listPlatforms();
+    const platforms = await listPlatforms(req.user.uid);
     res.json(platforms);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Erro ao listar plataformas.' });
   }
 });
@@ -198,18 +204,24 @@ app.post('/api/platforms', upload.single('image'), async (req, res) => {
       imageUrl = blob.url;
     }
 
-    const platform = await createPlatform({ id: randomUUID(), name, imageUrl });
+    const platform = await createPlatform(req.user.uid, { id: randomUUID(), name, imageUrl });
     return res.status(201).json(platform);
-  } catch (_error) {
+  } catch (error) {
+    if (error instanceof DuplicatePlatformError) {
+      return res.status(409).json({ message: 'Já existe uma plataforma com esse nome.' });
+    }
+
+    console.error(error);
     return res.status(500).json({ message: 'Erro ao criar plataforma.' });
   }
 });
 
-app.get('/api/stats', async (_req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const stats = await getStats();
+    const stats = await getStats(req.user.uid);
     res.json(stats);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Erro ao carregar estatísticas.' });
   }
 });
@@ -240,7 +252,8 @@ app.get('/api/search-games', async (req, res) => {
     }));
 
     return res.json(result);
-  } catch (_error) {
+  } catch (error) {
+    console.error(error);
     return res.status(502).json({ message: 'Erro ao conectar com a API de jogos.' });
   }
 });

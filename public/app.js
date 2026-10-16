@@ -1,3 +1,28 @@
+import {
+  apiFetch,
+  authErrorMessage,
+  loginWithEmail,
+  loginWithGoogle,
+  logout,
+  onUserChanged,
+  registerWithEmail,
+  resetPassword,
+} from './auth.js';
+
+const authLoading = document.getElementById('auth-loading');
+const authView = document.getElementById('auth-view');
+const appView = document.getElementById('app-view');
+const authForm = document.getElementById('auth-form');
+const authTitle = document.getElementById('auth-title');
+const authSubmit = document.getElementById('auth-submit');
+const authToggleMode = document.getElementById('auth-toggle-mode');
+const authResetPassword = document.getElementById('auth-reset-password');
+const authError = document.getElementById('auth-error');
+const authEmail = document.getElementById('auth-email');
+const authPassword = document.getElementById('auth-password');
+const googleLoginBtn = document.getElementById('google-login-btn');
+const userEmail = document.getElementById('user-email');
+const logoutBtn = document.getElementById('logout-btn');
 const gameForm = document.getElementById('game-form');
 const gamesList = document.getElementById('games-list');
 const cancelEditButton = document.getElementById('cancel-edit');
@@ -38,7 +63,7 @@ let allGames = [];
 let currentPage = 1;
 
 async function loadPlatforms(selectId) {
-  const response = await fetch('/api/platforms');
+  const response = await apiFetch('/api/platforms');
   const platforms = await response.json();
   platformsById = new Map(platforms.map((platform) => [platform.id, platform]));
 
@@ -86,7 +111,7 @@ function toggleEmulatorField() {
 }
 
 async function fetchGames() {
-  const response = await fetch('/api/games');
+  const response = await apiFetch('/api/games');
   return response.json();
 }
 
@@ -218,7 +243,7 @@ gameForm.addEventListener('submit', async (event) => {
   const method = id ? 'PUT' : 'POST';
   const url = id ? `/api/games/${id}` : '/api/games';
 
-  const response = await fetch(url, {
+  const response = await apiFetch(url, {
     method,
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -281,7 +306,7 @@ gamesList.addEventListener('click', async (event) => {
       return;
     }
 
-    const response = await fetch(`/api/games/${id}`, { method: 'DELETE' });
+    const response = await apiFetch(`/api/games/${id}`, { method: 'DELETE' });
     if (!response.ok) {
       alert('Erro ao excluir jogo.');
       return;
@@ -318,7 +343,7 @@ searchForm.addEventListener('submit', async (event) => {
     return;
   }
 
-  const response = await fetch(`/api/search-games?q=${encodeURIComponent(term)}`);
+  const response = await apiFetch(`/api/search-games?q=${encodeURIComponent(term)}`);
 
   if (!response.ok) {
     searchResults.innerHTML = '<div class="row-item">Não foi possível buscar jogos na API externa.</div>';
@@ -368,7 +393,7 @@ cancelPlatformBtn.addEventListener('click', () => {
 platformForm.addEventListener('submit', async (event) => {
   event.preventDefault();
 
-  const response = await fetch('/api/platforms', {
+  const response = await apiFetch('/api/platforms', {
     method: 'POST',
     body: new FormData(platformForm),
   });
@@ -438,7 +463,7 @@ function renderLastGames(lastGames) {
 }
 
 async function loadStats() {
-  const response = await fetch('/api/stats');
+  const response = await apiFetch('/api/stats');
   const stats = await response.json();
 
   document.getElementById('stat-total-games').textContent = stats.totalGames;
@@ -474,6 +499,89 @@ async function loadStats() {
   });
 }
 
-loadPlatforms();
-loadGames();
-showDashboard();
+let isRegisterMode = false;
+
+function showAuthError(message) {
+  authError.textContent = message;
+  authError.classList.toggle('hidden', !message);
+}
+
+function setRegisterMode(enabled) {
+  isRegisterMode = enabled;
+  authTitle.textContent = enabled ? 'Criar conta' : 'Entrar';
+  authSubmit.textContent = enabled ? 'Criar conta' : 'Entrar';
+  authToggleMode.textContent = enabled ? 'Já tenho conta' : 'Criar conta';
+  authPassword.autocomplete = enabled ? 'new-password' : 'current-password';
+  showAuthError('');
+}
+
+authToggleMode.addEventListener('click', () => setRegisterMode(!isRegisterMode));
+
+authForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  showAuthError('');
+  authSubmit.disabled = true;
+
+  try {
+    const email = authEmail.value.trim();
+    if (isRegisterMode) {
+      await registerWithEmail(email, authPassword.value);
+    } else {
+      await loginWithEmail(email, authPassword.value);
+    }
+  } catch (error) {
+    showAuthError(authErrorMessage(error));
+  } finally {
+    authSubmit.disabled = false;
+  }
+});
+
+googleLoginBtn.addEventListener('click', async () => {
+  showAuthError('');
+
+  try {
+    await loginWithGoogle();
+  } catch (error) {
+    showAuthError(authErrorMessage(error));
+  }
+});
+
+authResetPassword.addEventListener('click', async () => {
+  const email = authEmail.value.trim();
+
+  if (!email) {
+    showAuthError('Informe seu e-mail para redefinir a senha.');
+    return;
+  }
+
+  try {
+    await resetPassword(email);
+    showAuthError('');
+    alert('Enviamos um e-mail com o link para redefinir sua senha.');
+  } catch (error) {
+    showAuthError(authErrorMessage(error));
+  }
+});
+
+logoutBtn.addEventListener('click', () => logout());
+
+onUserChanged((user) => {
+  authLoading.classList.add('hidden');
+
+  if (!user) {
+    appView.classList.add('hidden');
+    authView.classList.remove('hidden');
+    authForm.reset();
+    setRegisterMode(false);
+    allGames = [];
+    return;
+  }
+
+  userEmail.textContent = user.email || user.displayName || '';
+  authView.classList.add('hidden');
+  appView.classList.remove('hidden');
+
+  loadPlatforms();
+  loadGames();
+  showDashboard();
+});

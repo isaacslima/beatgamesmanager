@@ -3,11 +3,15 @@
   "version": "1.0.0",
   "description": "Gerenciador de jogos para zerar com integração de busca externa",
   "main": "src/server.js",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "start": "node --env-file-if-exists=.env.local src/server.js",
     "dev": "node --env-file-if-exists=.env.local --watch src/server.js",
     "test": "node --test",
-    "migrate": "node scripts/migrate-json-to-postgres.js"
+    "deploy": "firebase deploy",
+    "firebase:login": "firebase login"
   },
   "repository": {
     "type": "git",
@@ -18,10 +22,12 @@
   "license": "ISC",
   "dependencies": {
     "@vercel/blob": "^2.8.0",
-    "@vercel/postgres": "^0.10.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.7.0",
-    "multer": "^2.4.0",
-    "pg": "^8.23.0"
+    "firebase-admin": "^14.5.0",
+    "multer": "^2.4.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "~15.32.1"
   }
 }
