@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { removeCatalog, saveCatalog } from './data.js';
 import { PROTECTED_STATUS_IDS, STATUS_COLORS, statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
 import { openFormModal } from './form-modal.js';
@@ -59,7 +59,6 @@ export const CATALOGS = {
       { name: 'order', label: 'Ordem', type: 'number', min: 0, required: true, hint: 'Posição nas listas e filtros.' },
       descriptionField,
     ],
-    toPayload: (values) => values,
     defaults: () => ({ color: 'amber', order: Math.max(0, ...store.statuses.map((item) => item.order)) + 1 }),
   },
 
@@ -95,19 +94,8 @@ export const CATALOGS = {
             { name: 'removeImage', label: 'Remover imagem atual', type: 'checkbox' },
           ]
         : []),
-      { name: 'image', label: record?.imageUrl ? 'Nova imagem' : 'Imagem', type: 'file', accept: 'image/*', hint: 'Opcional. Até 5 MB.' },
+      { name: 'image', label: record?.imageUrl ? 'Nova imagem' : 'Imagem', type: 'file', accept: 'image/*', hint: 'Opcional. Até 4 MB.' },
     ],
-    toPayload(values) {
-      const formData = new FormData();
-      formData.append('name', values.name);
-      if (values.image) {
-        formData.append('image', values.image);
-      }
-      if (values.removeImage) {
-        formData.append('removeImage', 'true');
-      }
-      return formData;
-    },
   },
 
   genres: {
@@ -131,7 +119,6 @@ export const CATALOGS = {
     defaultSort: { key: 'name', dir: 'asc' },
     searchText: (row) => `${row.name} ${row.description}`,
     fields: () => [{ name: 'name', label: 'Nome', required: true, maxlength: 80 }, descriptionField],
-    toPayload: (values) => values,
   },
 
   types: {
@@ -173,7 +160,6 @@ export const CATALOGS = {
       },
       descriptionField,
     ],
-    toPayload: (values) => values,
   },
 
   scores: {
@@ -209,7 +195,6 @@ export const CATALOGS = {
       { name: 'label', label: 'Rótulo', required: true, maxlength: 60, placeholder: 'Ex.: Jogo da vida' },
       descriptionField,
     ],
-    toPayload: (values) => values,
   },
 
   difficulties: {
@@ -232,7 +217,6 @@ export const CATALOGS = {
       { name: 'order', label: 'Ordem', type: 'number', min: 0, required: true, hint: 'Define a posição na escala (menor = mais fácil).' },
       descriptionField,
     ],
-    toPayload: (values) => values,
     defaults: () => ({ order: Math.max(0, ...store.difficulties.map((item) => item.order)) + 1 }),
   },
 };
@@ -260,10 +244,7 @@ export async function openCatalogForm(name, record = null) {
     title: record ? `Editar ${catalog.singular}` : `${text.new} ${catalog.singular}`,
     fields: catalog.fields(record),
     values,
-    onSubmit: (formValues) => {
-      const payload = catalog.toPayload(formValues);
-      return record ? api.put(`/api/${name}/${record.id}`, payload) : api.post(`/api/${name}`, payload);
-    },
+    onSubmit: (formValues) => saveCatalog(name, formValues, record),
   });
 
   if (saved) {
@@ -312,7 +293,7 @@ export function createCatalogView(name, root) {
           }
 
           try {
-            await api.del(`/api/${name}/${row.id}`);
+            await removeCatalog(name, row);
             await reload(name);
             toast('Registro excluído.');
           } catch (error) {

@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { list } from './data.js';
 
 export const COLLECTIONS = ['games', 'statuses', 'platforms', 'genres', 'types', 'scores', 'difficulties'];
 
@@ -15,7 +15,7 @@ function notify(names) {
 }
 
 export async function loadAll() {
-  const results = await Promise.all(COLLECTIONS.map((name) => api.get(`/api/${name}`)));
+  const results = await Promise.all(COLLECTIONS.map((name) => list(name)));
   COLLECTIONS.forEach((name, index) => {
     store[name] = results[index];
   });
@@ -23,7 +23,7 @@ export async function loadAll() {
 }
 
 export async function reload(...names) {
-  const results = await Promise.all(names.map((name) => api.get(`/api/${name}`)));
+  const results = await Promise.all(names.map((name) => list(name)));
   names.forEach((name, index) => {
     store[name] = results[index];
   });

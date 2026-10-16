@@ -1,9 +1,11 @@
 {
-  "version": 2,
-  "routes": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "",
+  "redirects": [
     {
-      "src": "/(.*)",
-      "dest": "/api/index.js"
+      "source": "/((?!api/).*)",
+      "destination": "https://beatgamesmanager.web.app/$1",
+      "permanent": false
     }
   ]
 }

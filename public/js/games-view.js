@@ -1,4 +1,4 @@
-import { api } from './api.js';
+import { removeGame, saveGame } from './data.js';
 import { openCatalogForm } from './catalog-views.js';
 import { statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
@@ -59,11 +59,7 @@ const FORM_HTML = `
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
         <div class="field sm:col-span-2">
           <label for="game-title">Nome do jogo <span class="text-red-500">*</span></label>
-          <div class="flex gap-2">
-            <input id="game-title" name="title" required maxlength="200" class="input-field flex-1" />
-            <button type="button" data-role="external-search" class="btn-secondary whitespace-nowrap text-sm" title="Buscar o nome na API externa (CheapShark)">Buscar online</button>
-          </div>
-          <div data-role="external-results" class="hidden mt-2 border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-60 overflow-y-auto"></div>
+          <input id="game-title" name="title" required maxlength="200" class="input-field" />
         </div>
 
         <div class="field">
@@ -185,7 +181,6 @@ export function createGamesView(root) {
   const form = root.querySelector('[data-role="game-form"]');
   const formTitle = root.querySelector('[data-role="form-title"]');
   const formError = root.querySelector('[data-role="form-error"]');
-  const externalResults = root.querySelector('[data-role="external-results"]');
   const fields = form.elements;
   let editingId = null;
 
@@ -287,7 +282,7 @@ export function createGamesView(root) {
             return;
           }
           try {
-            await api.del(`/api/games/${game.id}`);
+            await removeGame(game.id);
             await reload('games');
             toast('Jogo excluído.');
           } catch (error) {
@@ -373,7 +368,6 @@ export function createGamesView(root) {
     formTitle.textContent = game ? 'Editar jogo' : 'Cadastrar jogo';
     form.reset();
     showError('');
-    externalResults.classList.add('hidden');
 
     const values = game
       ? { ...game, playTime: formatPlayTime(game.playTimeSeconds) }
@@ -430,42 +424,6 @@ export function createGamesView(root) {
     });
   });
 
-  root.querySelector('[data-role="external-search"]').addEventListener('click', async () => {
-    const term = fields.title.value.trim();
-    if (!term) {
-      fields.title.focus();
-      return;
-    }
-
-    externalResults.classList.remove('hidden');
-    externalResults.innerHTML = '<p class="px-3 py-2 text-sm text-gray-500">Buscando...</p>';
-
-    try {
-      const results = await api.get(`/api/search-games?q=${encodeURIComponent(term)}`);
-      externalResults.innerHTML = results.length
-        ? results
-            .map(
-              (item) => `
-                <button type="button" data-title="${escapeHtml(item.title)}" class="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-gray-50">
-                  ${item.thumb ? `<img src="${escapeHtml(item.thumb)}" alt="" class="w-12 h-6 object-cover rounded" />` : ''}
-                  <span>${escapeHtml(item.title)}</span>
-                </button>`
-            )
-            .join('')
-        : '<p class="px-3 py-2 text-sm text-gray-500">Nenhum jogo encontrado.</p>';
-    } catch (error) {
-      externalResults.innerHTML = `<p class="px-3 py-2 text-sm text-red-600">${escapeHtml(error.message)}</p>`;
-    }
-  });
-
-  externalResults.addEventListener('click', (event) => {
-    const button = event.target.closest('[data-title]');
-    if (button) {
-      fields.title.value = button.dataset.title;
-      externalResults.classList.add('hidden');
-    }
-  });
-
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     showError('');
@@ -486,11 +444,7 @@ export function createGamesView(root) {
     submitButton.disabled = true;
 
     try {
-      if (editingId) {
-        await api.put(`/api/games/${editingId}`, values);
-      } else {
-        await api.post('/api/games', values);
-      }
+      await saveGame(values, editingId ? findById('games', editingId) : null);
       await reload('games');
       toast('Jogo salvo com sucesso.');
       showList();

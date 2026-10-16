@@ -1,6 +1,6 @@
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const {
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {
   normalizeKey,
   parsePlayTime,
   parseDate,
@@ -9,7 +9,7 @@ const {
   parseDifficulty,
   parseType,
   parseStatus,
-} = require('../src/validation');
+} from '../public/js/shared/validation.js';
 
 test('parsePlayTime aceita HH:MM:SS, HH:MM e horas decimais', () => {
   assert.deepEqual(parsePlayTime('12:30:15'), { value: 12 * 3600 + 30 * 60 + 15 });

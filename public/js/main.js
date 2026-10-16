@@ -10,6 +10,7 @@ import {
 import { createCatalogView } from './catalog-views.js';
 import { createDashboard } from './dashboard.js';
 import { createGamesView } from './games-view.js';
+import { ensureUserDefaults } from './data.js';
 import { clearStore, loadAll, onStoreChange } from './store.js';
 
 const VIEWS = {
@@ -221,6 +222,7 @@ onUserChanged(async (user) => {
 
   try {
     loadError.classList.add('hidden');
+    await ensureUserDefaults();
     await loadAll();
   } catch (error) {
     loadError.textContent = `Não foi possível carregar seus dados: ${error.message}`;
