@@ -4,14 +4,18 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 const projectId = process.env.FIREBASE_PROJECT_ID || 'beatgamesmanager';
 
+// No Cloud Functions as credenciais são automáticas. Localmente, use SERVICE_ACCOUNT_JSON
+// (o prefixo FIREBASE_ é reservado pelo Firebase CLI nos arquivos .env das functions).
 function loadCredential() {
-  if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+  const serviceAccountJson = process.env.SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT;
+
+  if (serviceAccountJson) {
     let serviceAccount;
     try {
-      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+      serviceAccount = JSON.parse(serviceAccountJson);
     } catch (_error) {
       throw new Error(
-        'FIREBASE_SERVICE_ACCOUNT inválida: use o conteúdo do JSON gerado em "Gerar nova chave privada", em uma linha.'
+        'SERVICE_ACCOUNT_JSON inválida: use o conteúdo do JSON gerado em "Gerar nova chave privada", em uma linha.'
       );
     }
     return cert(serviceAccount);

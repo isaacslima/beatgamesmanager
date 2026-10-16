@@ -1,5 +1,5 @@
 const express = require('express');
-const multer = require('multer');
+const { singleFileUpload } = require('../upload');
 const { put, del } = require('@vercel/blob');
 const { randomUUID } = require('node:crypto');
 const repo = require('../repository');
@@ -15,7 +15,6 @@ const {
 } = require('../validation');
 const { PROTECTED_STATUS_IDS } = require('../catalog');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
 
@@ -142,7 +141,7 @@ async function deleteImage(url) {
 function createCatalogRouter(collection) {
   const definition = DEFINITIONS[collection];
   const router = express.Router();
-  const parseUpload = definition.image ? upload.single('image') : (_req, _res, next) => next();
+  const parseUpload = definition.image ? singleFileUpload('image') : (_req, _res, next) => next();
   const label = definition.label;
 
   router.get(

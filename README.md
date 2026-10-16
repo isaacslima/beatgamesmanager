@@ -18,12 +18,12 @@ A especificação completa está em [`docs/especifica_o_de_features_beat_games.m
 
 ## Stack atual
 
-- Backend: Node.js + Express (serverless na Vercel)
+- Hosting: Firebase Hosting (serve `public/` e encaminha `/api/**` para a função)
+- Backend: Node.js + Express no Cloud Functions (2ª geração, função `api` em `us-central1`)
 - Autenticação: Firebase Authentication (Google e e-mail/senha)
 - Banco: Cloud Firestore (acessado pelo backend via `firebase-admin`)
-- Imagens das plataformas: Vercel Blob
-- Hosting: Vercel
-- Frontend: HTML/CSS/JS estático
+- Imagens das plataformas: Vercel Blob (único serviço que continua na Vercel)
+- Frontend: HTML/CSS/JS estático (módulos ES)
 
 Cada usuário tem seus próprios dados no Firestore:
 
@@ -44,27 +44,35 @@ O campo `status` do jogo guarda o id de um registro em `statuses` (os padrões u
 ## Requisitos
 
 - Node.js 22+
-- Projeto Firebase `beatgamesmanager` com Authentication e Firestore habilitados
-- Projeto Vercel com Blob Storage (para imagens das plataformas)
+- Projeto Firebase `beatgamesmanager` no plano **Blaze** (pago por uso; obrigatório para Cloud Functions e Secret Manager; o uso pessoal costuma ficar dentro da cota gratuita)
+- Um Blob store na Vercel (para as imagens das plataformas)
 
 ## Configurar o Firebase
 
 1. No [console do Firebase](https://console.firebase.google.com/project/beatgamesmanager), abra **Authentication > Sign-in method** e habilite **Google** e **E-mail/senha**.
-2. Em **Authentication > Settings > Authorized domains**, adicione o domínio da Vercel (ex.: `beatgamesmanager.vercel.app`). `localhost` já vem autorizado.
+2. Em **Authentication > Settings > Authorized domains**, confirme `beatgamesmanager.web.app` e `beatgamesmanager.firebaseapp.com` (já vêm por padrão). `localhost` também já vem autorizado.
 3. Abra **Firestore Database** e crie o banco (modo produção).
-4. As regras e índices do Firestore são publicados com `npm run deploy` (veja abaixo).
-5. Em **Configurações do projeto > Contas de serviço**, clique em **Gerar nova chave privada** e baixe o JSON.
+4. Em **Configurações do projeto > Uso e faturamento**, mude o plano para **Blaze**.
+5. Em **Configurações do projeto > Contas de serviço**, clique em **Gerar nova chave privada** e baixe o JSON (usado só para rodar localmente).
 
-## Variáveis de ambiente
+## Variáveis e secrets
 
-Configure na Vercel (**Settings > Environment Variables**) e, localmente, em `.env.local`:
+**Produção (Cloud Functions):** as credenciais do Firebase são automáticas. Só o token do Blob precisa ser cadastrado, uma vez, como secret:
+
+```bash
+npx firebase functions:secrets:set BLOB_READ_WRITE_TOKEN
+```
+
+**Local (`.env.local`):**
 
 | Variável | Descrição |
 | --- | --- |
-| `FIREBASE_SERVICE_ACCOUNT` | Conteúdo do JSON da conta de serviço, em uma linha |
-| `BLOB_READ_WRITE_TOKEN` | Token do Vercel Blob (adicionado automaticamente ao conectar o Blob ao projeto) |
+| `SERVICE_ACCOUNT_JSON` | Conteúdo do JSON da conta de serviço, em uma linha |
+| `BLOB_READ_WRITE_TOKEN` | Token do Vercel Blob (Vercel > Storage > seu Blob store > `.env.local`) |
 
-Alternativa ao `FIREBASE_SERVICE_ACCOUNT`: `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` (com `\n` nas quebras de linha). Sem nenhuma delas, o backend usa `GOOGLE_APPLICATION_CREDENTIALS`.
+> Não use o prefixo `FIREBASE_` nos arquivos `.env*`: ele é reservado pelo Firebase CLI. `FIREBASE_SERVICE_ACCOUNT` ainda é aceito pelo `npm run dev`, mas quebra o emulador.
+
+Para o emulador de Functions, o secret fica em `.secret.local` (`BLOB_READ_WRITE_TOKEN=...`). Os arquivos `*.local` e `.env*` são ignorados pelo git.
 
 > A configuração web do Firebase (apiKey etc.) fica em `public/js/auth.js`. Ela é pública por natureza; a segurança vem das regras do Firestore e da verificação do token no backend.
 
@@ -75,31 +83,40 @@ npm install
 npm start
 ```
 
-A aplicação fica disponível em `http://localhost:3000`.
+A aplicação fica disponível em `http://localhost:3000` (o Express serve o frontend e a API juntos).
+
+Para testar exatamente como em produção (Hosting + Function emulados, usando o Firestore real):
+
+```bash
+npm run emulators   # abre em http://127.0.0.1:5000 (ou a próxima porta livre)
+```
 
 ## Scripts
 
-- `npm start`: inicia servidor local
-- `npm run dev`: inicia servidor local com watch
-- `npm test`: executa os testes (`node --test`): validações do backend e ranking de sugestões
+- `npm start` / `npm run dev`: servidor local (com watch no `dev`)
+- `npm test`: testes automatizados (`node --test`)
+- `npm run emulators`: emuladores de Hosting e Functions
 - `npm run firebase:login`: autentica o Firebase CLI (uma vez por máquina)
-- `npm run deploy`: publica no Firebase tudo o que está em `firebase.json` (regras e índices do Firestore)
+- `npm run deploy`: publica no Firebase tudo o que está em `firebase.json` (Hosting, Function `api`, regras e índices do Firestore)
+- `npm run deploy:hosting`: publica só o frontend
 
 ## Deploy no Firebase
 
 As configurações do Firebase ficam versionadas no repositório:
 
-- `firebase.json`: o que é publicado
+- `firebase.json`: Hosting (com rewrite de `/api/**` para a função), Functions e Firestore
 - `.firebaserc`: projeto padrão (`beatgamesmanager`)
+- `src/functions.js`: entrada da função `api` (usa o app Express de `src/app.js`)
 - `firestore.rules`: regras de segurança (bloqueiam acesso direto dos clientes)
 - `firestore.indexes.json`: índices do Firestore
 
 ```bash
-npm run firebase:login   # só na primeira vez
+npm run firebase:login                               # só na primeira vez
+npx firebase functions:secrets:set BLOB_READ_WRITE_TOKEN   # só na primeira vez
 npm run deploy
 ```
 
-O hosting e o Blob continuam na Vercel (deploy automático a cada push).
+O site fica em `https://beatgamesmanager.web.app`. O deploy não é automático: rode `npm run deploy` depois de mergear na `main`.
 
 ## Endpoints da API
 
@@ -131,5 +148,5 @@ Exclusões de registros em uso retornam `409`. `POST /api/games/import` recebe `
 - `/test`: testes automatizados
 - `/firebase.json`, `/.firebaserc`, `/firestore.indexes.json`: configuração do Firebase CLI
 - `/firestore.rules`: regras de segurança do Firestore
-- `/api/index.js`: entrada serverless para Vercel
-- `/vercel.json`: roteamento para deploy na Vercel
+- `/src/functions.js`: entrada do Cloud Functions
+- `/src/upload.js`: leitura de multipart (compatível com o `rawBody` do Cloud Functions)

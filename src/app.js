@@ -10,15 +10,8 @@ const gamesRouter = require('./routes/games');
 const app = express();
 
 app.use(express.json({ limit: '2mb' }));
+// Em produção o Firebase Hosting serve /public; localmente (npm run dev) o Express serve.
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.use(
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 120,
-    standardHeaders: true,
-    legacyHeaders: false,
-  })
-);
 
 async function requireAuth(req, res, next) {
   const match = /^Bearer (.+)$/.exec(req.headers.authorization || '');
@@ -44,6 +37,20 @@ async function requireAuth(req, res, next) {
 }
 
 app.use('/api', requireAuth);
+
+// Limite por usuário autenticado (atrás do proxy do Firebase, o IP não é confiável).
+app.use(
+  '/api',
+  rateLimit({
+    windowMs: 60 * 1000,
+    limit: 120,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    keyGenerator: (req) => req.user.uid,
+    validate: false,
+    message: { message: 'Muitas requisições. Aguarde um minuto e tente novamente.' },
+  })
+);
 
 app.use('/api/games', gamesRouter);
 
