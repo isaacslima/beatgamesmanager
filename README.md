@@ -6,7 +6,9 @@ A especificação completa está em [`docs/especifica_o_de_features_beat_games.m
 ## Funcionalidades
 
 - **Dashboard**: cards de totais (jogos, plataformas, zerados, lista de desejo), gráficos por nota (11 a 1), por dificuldade (C a AAA), top plataformas e lista dos jogos GOTY.
-- **Jogos**: DataTable com busca, filtros (plataforma, gênero, status, período e GOTY), ordenação por coluna e paginação.
+- **Visual**: baseado no [Flowbite Admin Dashboard](https://github.com/themesberg/flowbite-admin-dashboard) (MIT): menu lateral, barra superior, tabelas, drawers e **modo claro/escuro** (segue o sistema, com botão para trocar).
+- **Jogos**: tabela com busca, filtros (plataforma, gênero, status, período, tag e GOTY), ordenação, paginação e formulário em drawer.
+- **Ações em lote**: selecione linhas para **excluir** vários registros (cadastros em uso são mantidos) ou **editar vários jogos** de uma vez: status, plataforma, gênero, tipo, dificuldade, GOTY e adicionar/remover tags.
 - **Cadastros** com CRUD e DataTable próprios: Status (nome, cor e ordem editáveis), Tags (com ícone e cor), Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
 - **Campos do jogo**: nome, plataforma, gênero, tipo, status, data de início e término (opcionais), tempo total (`HH:MM:SS`, `HH:MM` ou horas decimais), nota, dificuldade, condição de zeramento, tags (opcionais, até 20), destaque/GOTY e observações.
 - **Tags**: etiquetas livres com ícone (seletor com busca) e cor, exibidas na lista de jogos e usadas como filtro. Excluir uma tag a retira dos jogos.
@@ -80,7 +82,8 @@ npm run dev     # http://localhost:3000: frontend + /api/upload local, usando o 
 
 ## Scripts
 
-- `npm start` / `npm run dev`: servidor local (com watch no `dev`)
+- `npm start` / `npm run dev`: servidor local; recompila o CSS ao salvar
+- `npm run build:css`: gera `public/css/app.css` (roda sozinho antes do `npm run deploy`)
 - `npm test`: testes automatizados (validação, importação e sugestões)
 - `npm run test:rules`: testa as regras do Firestore no emulador (requer Java)
 - `npm run build:icons`: regenera `public/js/shared/icons.js` a partir do Lucide
@@ -98,6 +101,12 @@ npm run deploy           # Firebase Hosting + regras do Firestore
 
 O site fica em `https://beatgamesmanager.web.app`. A função de upload na Vercel é publicada automaticamente a cada push na `main`.
 
+## Visual (Tailwind + Flowbite)
+
+O CSS é gerado pelo Tailwind CSS v4 com o plugin do Flowbite 3, a partir de `styles/app.css`, que define as cores do tema, a fonte Inter e os componentes (`.btn-primary`, `.input-field`, `.panel`, `.data-table`…) com variantes de modo escuro. O arquivo gerado (`public/css/app.css`) não vai para o git.
+
+O layout, a tabela, os drawers e a tela de login seguem o [Flowbite Admin Dashboard](https://github.com/themesberg/flowbite-admin-dashboard) (licença MIT, © Themesberg). O comportamento (drawers, menus, tabela) é implementado nos módulos do app, sem o `flowbite.js`.
+
 ## Ícones
 
 Os ícones das tags vêm do [Lucide](https://lucide.dev) (licença ISC), pelo pacote `lucide-static`. Para manter o site leve, só uma seleção temática (cerca de 90 ícones, ~6 KB comprimidos) vai para `public/js/shared/icons.js`. Para adicionar ícones, inclua o nome (veja em lucide.dev) e um rótulo em português em `scripts/build-icons.mjs` e rode `npm run build:icons`.
@@ -109,7 +118,9 @@ Os ícones das tags vêm do [Lucide](https://lucide.dev) (licença ISC), pelo pa
   - `js/data.js`: acesso ao Firestore (CRUDs, importação, valores padrão)
   - `js/images.js`: cliente da função de upload
   - `js/shared/`: validação, importador e constantes (também usados nos testes)
-  - `js/datatable.js`, `js/catalog-views.js`, `js/games-view.js`, `js/import-view.js`, `js/dashboard.js`, `js/suggestions.js`: telas e componentes
+  - `js/datatable.js`, `js/drawer.js`, `js/catalog-views.js`, `js/games-view.js`, `js/import-view.js`, `js/dashboard.js`, `js/suggestions.js`, `js/theme.js`: telas e componentes
+  - `js/shared/bulk.js`: regras da edição em lote (testadas)
+- `/styles/app.css`: entrada do Tailwind (tema e componentes)
 - `/api/upload.js`: função serverless da Vercel (imagens no Blob)
 - `/server/verify-token.js`: verificação do token do Firebase usada pela função
 - `/server/dev.js`: servidor de desenvolvimento

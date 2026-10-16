@@ -1,0 +1,286 @@
+/*
+ * CSS do app: Tailwind CSS v4 + Flowbite 3 (plugin), no estilo do Flowbite Admin Dashboard
+ * (https://github.com/themesberg/flowbite-admin-dashboard, licença MIT).
+ * Gerado em public/css/app.css por `npm run build:css` (roda antes do deploy).
+ */
+@import "tailwindcss";
+@plugin "flowbite/plugin";
+
+/* Classes usadas no HTML e nos templates dos módulos JS. */
+@source "../public";
+
+/* Modo escuro pela classe .dark no <html> (segue o sistema; o usuário pode alternar). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+}
+
+@layer base {
+  /* Na v4 a borda padrão é currentColor; mantemos o cinza claro da v3. */
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+
+  /* A v4 tirou o cursor de "mãozinha" dos botões. */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-gray-50 font-sans text-gray-900 antialiased dark:bg-gray-900 dark:text-gray-100;
+  }
+
+  /* Ícones preenchidos pelo JS (data-icon); na camada base para `.hidden` vencer. */
+  [data-icon] {
+    display: inline-flex;
+    flex-shrink: 0;
+  }
+}
+
+@layer components {
+  /* ---------- Superfícies ---------- */
+  .panel {
+    @apply rounded-lg border border-gray-200 bg-white p-4 shadow-xs sm:p-6 dark:border-gray-700 dark:bg-gray-800;
+  }
+
+  .panel-title {
+    @apply mb-4 text-xl font-semibold text-gray-900 dark:text-white;
+  }
+
+  .muted {
+    @apply text-sm text-gray-500 dark:text-gray-400;
+  }
+
+  /* ---------- Formulários ---------- */
+  .field {
+    @apply mb-4;
+  }
+
+  .field > label,
+  .field-label {
+    @apply mb-2 block text-sm font-medium text-gray-900 dark:text-white;
+  }
+
+  .input-field {
+    @apply block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-sm text-gray-900 focus:border-primary-500 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:focus:border-primary-500 dark:focus:ring-primary-500;
+  }
+
+  .input-field[readonly] {
+    @apply cursor-not-allowed bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400;
+  }
+
+  .checkbox {
+    @apply h-4 w-4 rounded-sm border-gray-300 bg-gray-100 text-primary-600 focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700 dark:ring-offset-gray-800 dark:focus:ring-primary-600;
+  }
+
+  .hint {
+    @apply mt-1 text-xs text-gray-500 dark:text-gray-400;
+  }
+
+  .form-error {
+    @apply mb-3 rounded-lg bg-red-50 p-3 text-sm text-red-800 dark:bg-gray-800 dark:text-red-400;
+  }
+
+  /* ---------- Botões ---------- */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-primary-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-primary-800 focus:ring-4 focus:ring-primary-300 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-gray-200 bg-white px-5 py-2.5 text-center text-sm font-medium text-gray-900 hover:bg-gray-100 hover:text-primary-700 focus:ring-4 focus:ring-gray-200 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700;
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-red-800 focus:ring-4 focus:ring-red-300 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-50 dark:bg-red-600 dark:hover:bg-red-700 dark:focus:ring-red-900;
+  }
+
+  .btn-sm {
+    @apply px-3 py-2 text-xs;
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-900 focus:ring-2 focus:ring-gray-200 focus:outline-hidden dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-white dark:focus:ring-gray-700;
+  }
+
+  .icon-btn-danger {
+    @apply hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/40 dark:hover:text-red-400;
+  }
+
+  /* ---------- Badges ---------- */
+  .badge {
+    @apply inline-flex items-center rounded-md px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
+  }
+
+  .tag-chip {
+    @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs leading-5 font-medium whitespace-nowrap;
+  }
+
+  .score-pill {
+    @apply inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-1.5 text-[0.8125rem] font-bold text-white;
+  }
+
+  .difficulty-pill {
+    @apply inline-flex min-w-9 items-center justify-center rounded-md bg-gray-900 px-1.5 py-0.5 text-xs font-bold tracking-wide text-white dark:bg-gray-100 dark:text-gray-900;
+  }
+
+  /* ---------- Tabela (estilo da página de produtos do tema) ---------- */
+  .data-table {
+    @apply min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-600;
+  }
+
+  .data-table thead {
+    @apply bg-gray-100 dark:bg-gray-700;
+  }
+
+  .data-table th {
+    @apply p-4 text-left text-xs font-medium whitespace-nowrap text-gray-500 uppercase dark:text-gray-400;
+  }
+
+  .data-table tbody {
+    @apply divide-y divide-gray-200 bg-white dark:divide-gray-700 dark:bg-gray-800;
+  }
+
+  .data-table td {
+    @apply p-4 align-middle text-gray-900 dark:text-white;
+  }
+
+  .data-table tbody tr {
+    @apply hover:bg-gray-100 dark:hover:bg-gray-700;
+  }
+
+  .data-table tbody tr.is-selected {
+    @apply bg-primary-50 hover:bg-primary-100 dark:bg-primary-900/30 dark:hover:bg-primary-900/50;
+  }
+
+  .data-table .text-right {
+    @apply text-right;
+  }
+
+  .sort-btn {
+    @apply inline-flex items-center gap-1 uppercase hover:text-gray-900 dark:hover:text-white;
+  }
+
+  /* ---------- Menu lateral ---------- */
+  .sidebar-link {
+    @apply flex w-full items-center gap-3 rounded-lg p-2 text-base text-gray-900 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700;
+  }
+
+  .sidebar-link svg {
+    @apply h-6 w-6 shrink-0 text-gray-500 transition duration-75 dark:text-gray-400;
+  }
+
+  .sidebar-link:hover svg,
+  .sidebar-link.active svg {
+    @apply text-gray-900 dark:text-white;
+  }
+
+  .sidebar-link.active {
+    @apply bg-gray-100 font-medium dark:bg-gray-700;
+  }
+
+  .sidebar-sublink {
+    @apply pl-11;
+  }
+
+  /* ---------- Sugestões (condição de zeramento) ---------- */
+  .suggestions {
+    @apply absolute top-full right-0 left-0 z-20 mt-1 max-h-72 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-gray-600 dark:bg-gray-700;
+  }
+
+  .suggestions-header {
+    @apply px-4 py-1.5 text-[0.6875rem] font-semibold tracking-wide text-gray-400 uppercase;
+  }
+
+  .suggestions [role='option'] {
+    @apply cursor-pointer px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600;
+  }
+
+  .suggestions [role='option'].active {
+    @apply bg-primary-50 dark:bg-gray-600;
+  }
+
+  /* ---------- Tags no formulário ---------- */
+  .tag-toggle {
+    @apply cursor-pointer rounded-md;
+  }
+
+  .tag-toggle .tag-chip {
+    @apply opacity-45 grayscale-[0.6] transition hover:opacity-80;
+  }
+
+  .tag-toggle input:checked + .tag-chip {
+    @apply opacity-100 ring-2 ring-current grayscale-0;
+  }
+
+  .tag-toggle input:focus-visible + .tag-chip {
+    @apply outline-2 outline-offset-2 outline-primary-500;
+  }
+
+  /* ---------- Seletor de ícones ---------- */
+  .icon-grid {
+    @apply grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1.5 overflow-y-auto rounded-lg border border-gray-200 p-1 dark:border-gray-600;
+  }
+
+  .icon-option {
+    @apply cursor-pointer;
+  }
+
+  .icon-option > span {
+    @apply flex h-10 items-center justify-center rounded-lg border border-transparent text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700;
+  }
+
+  .icon-option input:checked + span {
+    @apply border-primary-500 bg-primary-50 text-primary-700 dark:bg-gray-700 dark:text-primary-400;
+  }
+
+  .icon-option input:focus-visible + span {
+    @apply outline-2 outline-offset-1 outline-primary-500;
+  }
+
+  /* ---------- GOTY ---------- */
+  .goty-toggle {
+    @apply inline-flex cursor-pointer items-center gap-3;
+  }
+
+  .goty-box {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 text-gray-300 transition dark:border-gray-600 dark:text-gray-600;
+  }
+
+  /* ---------- Drawer (painel lateral) ---------- */
+  .drawer-backdrop {
+    @apply fixed inset-0 z-40 bg-gray-900/50 dark:bg-gray-900/80;
+  }
+
+  .drawer {
+    @apply fixed top-0 right-0 z-50 flex h-screen w-full flex-col overflow-y-auto bg-white p-4 shadow-xl transition-transform duration-200 dark:bg-gray-800;
+  }
+
+  .drawer-title {
+    @apply mb-6 inline-flex items-center text-sm font-semibold text-gray-500 uppercase dark:text-gray-400;
+  }
+}

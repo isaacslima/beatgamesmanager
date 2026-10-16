@@ -1,5 +1,6 @@
 import { previewImport, runImport } from './data.js';
 import { findById, reload, sortedStatuses, store } from './store.js';
+import { iconSvg } from './shared/icons.js';
 import { tagChip } from './tag-chip.js';
 import { escapeHtml, formatDate, formatPlayTime, normalizeText, scoreColor, toast } from './ui.js';
 
@@ -71,13 +72,13 @@ function downloadExample() {
   URL.revokeObjectURL(url);
 }
 
-const newTag = '<span class="ml-1 rounded bg-blue-50 px-1 text-[10px] font-semibold uppercase text-blue-700">novo</span>';
-const dash = '<span class="text-gray-400">-</span>';
+const newTag = '<span class="ml-1 rounded-sm bg-primary-100 px-1 text-[10px] font-semibold text-primary-800 uppercase dark:bg-primary-900 dark:text-primary-300">novo</span>';
+const dash = '<span class="text-gray-400 dark:text-gray-500">-</span>';
 
 // Tag já cadastrada aparece com ícone e cor; tag nova, com o selo "novo".
 function previewTag(tag) {
   const existing = store.tags.find((item) => normalizeText(item.name) === normalizeText(tag.name));
-  return existing && !tag.isNew ? tagChip(existing) : `<span class="tag-chip bg-gray-100 text-gray-600">${escapeHtml(tag.name)}${newTag}</span>`;
+  return existing && !tag.isNew ? tagChip(existing) : `<span class="tag-chip bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">${escapeHtml(tag.name)}${newTag}</span>`;
 }
 
 function refCell(name, isNew) {
@@ -90,17 +91,17 @@ export function createImportPanel(root, { onClose }) {
       <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
         <div>
           <h2 class="panel-title mb-1">Importar jogos de um arquivo JSON</h2>
-          <p class="text-sm text-gray-500">O arquivo deve conter uma lista de jogos: <code class="text-xs bg-gray-100 rounded px-1">[ { ... }, { ... } ]</code>. Até 1000 jogos por vez.</p>
+          <p class="muted">O arquivo deve conter uma lista de jogos: <code class="rounded-sm bg-gray-100 px-1 text-xs dark:bg-gray-700">[ { ... }, { ... } ]</code>. Até 1000 jogos por vez.</p>
         </div>
         <div class="flex gap-2">
-          <button type="button" data-role="download" class="btn-secondary">Baixar exemplo</button>
+          <button type="button" data-role="download" class="btn-secondary">${iconSvg('download', 'h-4 w-4')} Baixar exemplo</button>
           <button type="button" data-role="close" class="btn-secondary">Voltar para a lista</button>
         </div>
       </div>
 
-      <details class="mb-5 rounded-lg border border-gray-200">
-        <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-700">Campos aceitos</summary>
-        <div class="overflow-x-auto border-t border-gray-200">
+      <details class="mb-5 rounded-lg border border-gray-200 dark:border-gray-700">
+        <summary class="cursor-pointer px-4 py-2.5 text-sm font-medium text-gray-900 dark:text-white">Campos aceitos</summary>
+        <div class="overflow-x-auto border-t border-gray-200 dark:border-gray-700">
           <table class="data-table">
             <thead><tr><th>Campo</th><th>Obrigatório</th><th>Formato</th></tr></thead>
             <tbody>
@@ -108,23 +109,24 @@ export function createImportPanel(root, { onClose }) {
                 ([field, required, description]) => `
                   <tr>
                     <td><code class="text-xs">${field}</code></td>
-                    <td>${required === 'Sim' ? '<span class="font-medium text-red-600">Sim</span>' : 'Não'}</td>
+                    <td>${required === 'Sim' ? '<span class="font-medium text-red-600 dark:text-red-400">Sim</span>' : 'Não'}</td>
                     <td>${escapeHtml(description)}</td>
                   </tr>`
               ).join('')}
             </tbody>
           </table>
         </div>
-        <p data-role="statuses" class="px-4 py-2.5 text-xs text-gray-500 border-t border-gray-200"></p>
+        <p data-role="statuses" class="border-t border-gray-200 px-4 py-2.5 text-xs text-gray-500 dark:border-gray-700 dark:text-gray-400"></p>
       </details>
 
-      <label data-role="drop" class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 px-4 py-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/40">
-        <span class="text-sm font-medium text-gray-700">Clique para selecionar ou arraste o arquivo .json aqui</span>
-        <span data-role="file-name" class="text-xs text-gray-500">Nenhum arquivo selecionado</span>
+      <label data-role="drop" class="flex flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-4 py-10 text-center cursor-pointer dark:border-gray-600 dark:bg-gray-700/40 hover:border-blue-400 hover:bg-blue-50/40">
+        <span class="mb-1 text-gray-500 dark:text-gray-400">${iconSvg('upload', 'h-8 w-8')}</span>
+        <span class="text-sm font-medium text-gray-900 dark:text-white">Clique para selecionar ou arraste o arquivo .json aqui</span>
+        <span data-role="file-name" class="text-xs text-gray-500 dark:text-gray-400">Nenhum arquivo selecionado</span>
         <input type="file" accept=".json,application/json" class="sr-only" data-role="file" />
       </label>
 
-      <p data-role="error" class="hidden mt-4 text-sm text-red-600" role="alert"></p>
+      <p data-role="error" class="form-error mt-4 hidden" role="alert"></p>
       <div data-role="preview" class="hidden mt-6"></div>
     </div>
   `;
@@ -182,18 +184,18 @@ export function createImportPanel(root, { onClose }) {
 
     preview.innerHTML = `
       <div class="flex flex-wrap items-center gap-2 mb-3 text-sm">
-        <span class="badge bg-gray-100 text-gray-700">${summary.total} no arquivo</span>
-        <span class="badge bg-emerald-50 text-emerald-700">${summary.valid} válido(s)</span>
-        ${summary.duplicates ? `<span class="badge bg-amber-50 text-amber-700">${summary.duplicates} possível(is) duplicado(s)</span>` : ''}
-        ${summary.invalid ? `<span class="badge bg-red-50 text-red-700">${summary.invalid} com erro</span>` : ''}
+        <span class="badge bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300">${summary.total} no arquivo</span>
+        <span class="badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">${summary.valid} válido(s)</span>
+        ${summary.duplicates ? `<span class="badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300">${summary.duplicates} possível(is) duplicado(s)</span>` : ''}
+        ${summary.invalid ? `<span class="badge bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300">${summary.invalid} com erro</span>` : ''}
       </div>
-      ${toCreate ? `<div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900"><p class="font-medium mb-1">Cadastros que serão criados:</p><ul class="space-y-0.5">${toCreate}</ul></div>` : ''}
-      <p class="mb-3 text-xs text-gray-500">Linhas com erro não podem ser importadas. Possíveis duplicados ficam desmarcados; marque se quiser importar mesmo assim.</p>
-      <div class="overflow-x-auto max-h-[32rem] overflow-y-auto border border-gray-200 rounded-lg">
+      ${toCreate ? `<div class="mb-4 rounded-lg bg-primary-50 p-4 text-sm text-primary-800 dark:bg-gray-700 dark:text-primary-300"><p class="font-medium mb-1">Cadastros que serão criados:</p><ul class="space-y-0.5">${toCreate}</ul></div>` : ''}
+      <p class="hint mb-3">Linhas com erro não podem ser importadas. Possíveis duplicados ficam desmarcados; marque se quiser importar mesmo assim.</p>
+      <div class="max-h-[32rem] overflow-auto rounded-lg border border-gray-200 dark:border-gray-700">
         <table class="data-table">
           <thead class="sticky top-0">
             <tr>
-              <th class="w-10"><input type="checkbox" data-role="select-all" class="w-4 h-4 accent-blue-600" aria-label="Selecionar todos os válidos" /></th>
+              <th class="w-10"><input type="checkbox" data-role="select-all" class="checkbox" aria-label="Selecionar todos os válidos" /></th>
               <th>#</th><th>Nome</th><th>Status</th><th>Plataforma</th><th>Gênero / Tipo</th>
               <th>Tags</th><th>Início</th><th>Término</th><th>Tempo</th><th>Nota</th><th>Dific.</th><th>Mensagens</th>
             </tr>
@@ -202,16 +204,16 @@ export function createImportPanel(root, { onClose }) {
             ${rows
               .map((row) => {
                 const p = row.preview;
-                const rowClass = !row.valid ? 'bg-red-50/60' : row.duplicate ? 'bg-amber-50/60' : '';
+                const rowClass = !row.valid ? 'bg-red-50/60 dark:bg-red-900/20' : row.duplicate ? 'bg-yellow-50/60 dark:bg-yellow-900/20' : '';
                 const messages = [
-                  ...row.errors.map((message) => `<li class="text-red-700">${escapeHtml(message)}</li>`),
-                  ...row.warnings.map((message) => `<li class="text-amber-700">${escapeHtml(message)}</li>`),
+                  ...row.errors.map((message) => `<li class="text-red-700 dark:text-red-400">${escapeHtml(message)}</li>`),
+                  ...row.warnings.map((message) => `<li class="text-yellow-700 dark:text-yellow-400">${escapeHtml(message)}</li>`),
                 ].join('');
                 return `
                   <tr class="${rowClass}">
-                    <td><input type="checkbox" data-index="${row.index}" class="w-4 h-4 accent-blue-600" ${row.valid ? '' : 'disabled'} ${selected.has(row.index) ? 'checked' : ''} aria-label="Importar item ${row.index + 1}" /></td>
+                    <td><input type="checkbox" data-index="${row.index}" class="checkbox" ${row.valid ? '' : 'disabled'} ${selected.has(row.index) ? 'checked' : ''} aria-label="Importar item ${row.index + 1}" /></td>
                     <td class="text-gray-400">${row.index + 1}</td>
-                    <td class="font-medium text-gray-900">${p.isGoty ? '<span class="text-amber-500" title="GOTY">★</span> ' : ''}${row.title ? escapeHtml(row.title) : dash}</td>
+                    <td class="font-medium text-gray-900 dark:text-white">${p.isGoty ? '<span class="text-amber-500" title="GOTY">★</span> ' : ''}${row.title ? escapeHtml(row.title) : dash}</td>
                     <td>${p.status ? escapeHtml(p.status) : dash}</td>
                     <td>${refCell(p.platform, p.platformNew)}</td>
                     <td>${refCell(p.genre, p.genreNew)}${p.type ? `<span class="block text-xs text-gray-500">${refCell(p.type, p.typeNew)}</span>` : ''}</td>
@@ -221,7 +223,7 @@ export function createImportPanel(root, { onClose }) {
                     <td class="whitespace-nowrap tabular-nums">${p.playTimeSeconds === null ? dash : formatPlayTime(p.playTimeSeconds)}</td>
                     <td>${p.score ? `<span class="score-pill" style="background:${scoreColor(p.score)}">${p.score}</span>` : dash}</td>
                     <td>${p.difficulty ? `<span class="difficulty-pill">${escapeHtml(p.difficulty)}</span>` : dash}</td>
-                    <td class="text-xs min-w-[14rem]">${messages ? `<ul class="space-y-0.5">${messages}</ul>` : '<span class="text-emerald-700">OK</span>'}</td>
+                    <td class="text-xs min-w-[14rem]">${messages ? `<ul class="space-y-0.5">${messages}</ul>` : '<span class="text-green-700 dark:text-green-400">OK</span>'}</td>
                   </tr>`;
               })
               .join('')}

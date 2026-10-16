@@ -1,4 +1,5 @@
 import { DEFAULT_ICON, ICON_NAMES, ICONS, iconSvg } from './shared/icons.js';
+import { openDrawer } from './drawer.js';
 import { escapeHtml, normalizeText, optionsHtml } from './ui.js';
 
 let modalCount = 0;
@@ -7,14 +8,14 @@ function fieldHtml(field, value, prefix) {
   const id = `${prefix}-${field.name}`;
   const required = field.required ? ' required' : '';
   const readonly = field.readonly ? ' readonly' : '';
-  const hint = field.hint ? `<p class="text-xs text-gray-500 mt-1">${escapeHtml(field.hint)}</p>` : '';
+  const hint = field.hint ? `<p class="hint">${escapeHtml(field.hint)}</p>` : '';
   const label = `<label for="${id}">${escapeHtml(field.label)}${field.required ? ' <span class="text-red-500">*</span>' : ''}</label>`;
 
   if (field.type === 'checkbox') {
     return `
       <div class="field">
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input id="${id}" name="${field.name}" type="checkbox" class="w-4 h-4 accent-blue-600"${value ? ' checked' : ''} />
+        <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+          <input id="${id}" name="${field.name}" type="checkbox" class="checkbox"${value ? ' checked' : ''} />
           ${escapeHtml(field.label)}
         </label>
         ${hint}
@@ -37,7 +38,7 @@ function fieldHtml(field, value, prefix) {
     const selected = value || DEFAULT_ICON;
     return `
       <div class="field" data-icon-field>
-        <span class="block text-sm font-medium text-gray-700 mb-1.5">${escapeHtml(field.label)}</span>
+        <span class="field-label">${escapeHtml(field.label)}</span>
         <input type="search" data-icon-search class="input-field mb-2" placeholder="Buscar ícone (ex.: troféu, espada, co-op)..." aria-label="Buscar ícone" />
         <div class="icon-grid" role="radiogroup" aria-label="${escapeHtml(field.label)}">
           ${ICON_NAMES.map(
@@ -48,7 +49,7 @@ function fieldHtml(field, value, prefix) {
               </label>`
           ).join('')}
         </div>
-        <p data-icon-empty class="hidden text-xs text-gray-500 mt-2">Nenhum ícone encontrado.</p>
+        <p data-icon-empty class="hint hidden">Nenhum ícone encontrado.</p>
         ${hint}
       </div>`;
   }
@@ -68,51 +69,39 @@ function fieldHtml(field, value, prefix) {
 }
 
 /**
- * Abre um modal com formulário. onSubmit(values) pode lançar erro (mensagem exibida no modal).
+ * Abre um formulário num drawer lateral. onSubmit(values) pode lançar erro (mensagem exibida no drawer).
  * Resolve com o retorno de onSubmit, ou null se cancelado.
  */
 export function openFormModal({ title, fields, values = {}, onSubmit, submitLabel = 'Salvar' }) {
   const prefix = `fm${++modalCount}`;
 
   return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4';
-    overlay.innerHTML = `
-      <div class="panel w-full max-w-md max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="${prefix}-title">
-        <h2 id="${prefix}-title" class="panel-title">${escapeHtml(title)}</h2>
-        <form novalidate>
+    let result = null;
+    const drawer = openDrawer({
+      title,
+      onClose: () => resolve(result),
+      body: `
+        <form novalidate class="flex flex-1 flex-col">
           ${fields.map((field) => fieldHtml(field, values[field.name], prefix)).join('')}
-          <p data-role="error" class="hidden text-sm text-red-600 mb-3" role="alert"></p>
-          <div class="flex justify-end gap-3">
-            <button type="button" data-role="cancel" class="btn-secondary">Cancelar</button>
-            <button type="submit" class="btn-primary">${escapeHtml(submitLabel)}</button>
+          <p data-role="error" class="form-error hidden" role="alert"></p>
+          <div class="mt-auto flex gap-3 pt-4">
+            <button type="submit" class="btn-primary w-full">${escapeHtml(submitLabel)}</button>
+            <button type="button" data-role="cancel" class="btn-secondary w-full">Cancelar</button>
           </div>
         </form>
-      </div>
-    `;
+      `,
+    });
 
-    const form = overlay.querySelector('form');
-    const errorBox = overlay.querySelector('[data-role="error"]');
+    const form = drawer.body.querySelector('form');
+    const errorBox = form.querySelector('[data-role="error"]');
     const submitButton = form.querySelector('button[type="submit"]');
 
-    function close(result) {
-      overlay.remove();
-      document.removeEventListener('keydown', onKeydown);
-      resolve(result);
+    function close(value) {
+      result = value;
+      drawer.close();
     }
 
-    function onKeydown(event) {
-      if (event.key === 'Escape') {
-        close(null);
-      }
-    }
-
-    overlay.querySelector('[data-role="cancel"]').addEventListener('click', () => close(null));
-    overlay.addEventListener('mousedown', (event) => {
-      if (event.target === overlay) {
-        close(null);
-      }
-    });
+    form.querySelector('[data-role="cancel"]').addEventListener('click', () => close(null));
 
     // Busca no seletor de ícones.
     form.addEventListener('input', (event) => {
@@ -171,8 +160,6 @@ export function openFormModal({ title, fields, values = {}, onSubmit, submitLabe
       }
     });
 
-    document.addEventListener('keydown', onKeydown);
-    document.body.appendChild(overlay);
-    form.querySelector('input:not([readonly]):not([type="hidden"]), select, textarea')?.focus();
+    form.querySelector('input:not([readonly]):not([type="hidden"]):not([type="radio"]), select, textarea')?.focus();
   });
 }

@@ -1,17 +1,23 @@
-import { removeGame, saveGame } from './data.js';
+import { bulkUpdateGames, removeGame, removeGames, saveGame } from './data.js';
 import { openCatalogForm } from './catalog-views.js';
 import { statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
+import { openDrawer } from './drawer.js';
 import { createImportPanel } from './import-view.js';
+import { iconSvg } from './shared/icons.js';
 import { store, reload, findById, findScore, sortedStatuses } from './store.js';
 import { attachConditionSuggestions } from './suggestions.js';
 import { tagChip } from './tag-chip.js';
 import { confirmDialog, escapeHtml, formatDate, formatPlayTime, optionsHtml, scoreColor, toast } from './ui.js';
 
-const STAR = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 17.3l-6.2 3.7 1.6-7-5.4-4.7 7.1-.6L12 2l2.9 6.7 7.1.6-5.4 4.7 1.6 7z"/></svg>';
+const STAR = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 17.3l-6.2 3.7 1.6-7-5.4-4.7 7.1-.6L12 2l2.9 6.7 7.1.6-5.4 4.7 1.6 7z"/></svg>';
+
+// Valores especiais dos selects da edição em lote.
+const KEEP = '';
+const CLEAR = '__clear__';
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
-const dash = '<span class="text-gray-400">-</span>';
+const dash = '<span class="text-gray-400 dark:text-gray-500">-</span>';
 
 function gameTags(game) {
   return (game.tagIds || []).map((id) => findById('tags', id)).filter(Boolean).sort(byName);
@@ -31,7 +37,7 @@ export function scoreBadge(value) {
   return `
     <span class="inline-flex items-center gap-2 whitespace-nowrap">
       <span class="score-pill" style="background:${scoreColor(value)}">${value}</span>
-      <span class="text-xs text-gray-500">${escapeHtml(score?.label ?? '')}</span>
+      <span class="text-xs text-gray-500 dark:text-gray-400">${escapeHtml(score?.label ?? '')}</span>
     </span>`;
 }
 
@@ -54,167 +60,204 @@ function overlapsPeriod(game, { from, to }) {
   return (!from || end >= from) && (!to || start <= to);
 }
 
+const platformOptions = () => [...store.platforms].sort(byName).map((item) => ({ value: item.id, label: item.name }));
+const genreOptions = () => [...store.genres].sort(byName).map((item) => ({ value: item.id, label: item.name }));
+const statusOptions = () => sortedStatuses().map((status) => ({ value: status.id, label: status.name }));
+const difficultyOptions = () =>
+  [...store.difficulties].sort((a, b) => a.order - b.order).map((item) => ({ value: item.id, label: `${item.key} — ${item.label}` }));
 
-const FORM_HTML = `
-  <div class="panel max-w-3xl">
-    <div class="flex items-center justify-between gap-4 mb-4">
-      <h2 class="panel-title mb-0" data-role="form-title">Cadastrar jogo</h2>
+function typeOptions(genreId) {
+  return [...store.types]
+    .filter((type) => !type.genreId || !genreId || type.genreId === genreId)
+    .sort(byName)
+    .map((type) => {
+      const genre = !genreId && type.genreId ? findById('genres', type.genreId)?.name : null;
+      return { value: type.id, label: genre ? `${type.name} (${genre})` : type.name };
+    });
+}
+
+function tagToggles(name, tags, selected = new Set()) {
+  return tags
+    .map(
+      (tag) => `
+        <label class="tag-toggle">
+          <input type="checkbox" name="${name}" value="${escapeHtml(tag.id)}" class="sr-only"${selected.has(tag.id) ? ' checked' : ''} />
+          ${tagChip(tag)}
+        </label>`
+    )
+    .join('');
+}
+
+const quickAddButton = (collection, label) =>
+  `<button type="button" data-quick-add="${collection}" class="btn-secondary shrink-0 px-3" title="${label}" aria-label="${label}">${iconSvg('plus', 'h-4 w-4')}</button>`;
+
+const GAME_FORM_HTML = `
+  <form data-role="game-form" novalidate class="flex flex-1 flex-col">
+    <div class="grid grid-cols-1 gap-x-4 sm:grid-cols-2">
+      <div class="field sm:col-span-2">
+        <label for="game-title">Nome do jogo <span class="text-red-500">*</span></label>
+        <input id="game-title" name="title" required maxlength="200" class="input-field" />
+      </div>
+
+      <div class="field">
+        <label for="game-status">Status <span class="text-red-500">*</span></label>
+        <select id="game-status" name="status" required class="input-field"></select>
+      </div>
+
+      <div class="field">
+        <label for="game-platform">Plataforma</label>
+        <div class="flex gap-2"><select id="game-platform" name="platformId" class="input-field"></select>${quickAddButton('platforms', 'Nova plataforma')}</div>
+      </div>
+
+      <div class="field">
+        <label for="game-genre">Gênero</label>
+        <div class="flex gap-2"><select id="game-genre" name="genreId" class="input-field"></select>${quickAddButton('genres', 'Novo gênero')}</div>
+      </div>
+
+      <div class="field">
+        <label for="game-type">Tipo</label>
+        <div class="flex gap-2"><select id="game-type" name="typeId" class="input-field"></select>${quickAddButton('types', 'Novo tipo')}</div>
+      </div>
+
+      <div class="field">
+        <label for="game-start">Data de início</label>
+        <input id="game-start" name="startDate" type="date" class="input-field" />
+      </div>
+
+      <div class="field">
+        <label for="game-end">Data de término</label>
+        <input id="game-end" name="endDate" type="date" class="input-field" />
+      </div>
+
+      <p class="hint -mt-2 mb-4 sm:col-span-2">As datas são opcionais (ex.: jogos na lista de desejo ou planejados).</p>
+
+      <div class="field">
+        <label for="game-playtime">Tempo total</label>
+        <input id="game-playtime" name="playTime" class="input-field" placeholder="HH:MM:SS ou horas (ex.: 12,5)" />
+      </div>
+
+      <div class="field">
+        <label for="game-difficulty">Dificuldade</label>
+        <select id="game-difficulty" name="difficultyId" class="input-field"></select>
+      </div>
+
+      <div class="field sm:col-span-2">
+        <label for="game-score">Nota</label>
+        <select id="game-score" name="score" class="input-field"></select>
+      </div>
+
+      <div class="field sm:col-span-2">
+        <label for="game-condition">Condição de zeramento</label>
+        <div>
+          <input id="game-condition" name="completionCondition" maxlength="300" class="input-field" placeholder="Ex.: Ver os créditos, conquistar as 80 estrelas..." />
+        </div>
+        <p class="hint">Ao focar ou digitar, sugerimos condições usadas em jogos parecidos do seu histórico.</p>
+      </div>
+
+      <div class="field sm:col-span-2">
+        <div class="mb-2 flex items-center justify-between gap-2">
+          <span id="game-tags-label" class="text-sm font-medium text-gray-900 dark:text-white">Tags</span>
+          <button type="button" data-quick-add="tags" class="btn-secondary btn-sm">${iconSvg('plus', 'h-4 w-4')} Nova tag</button>
+        </div>
+        <div data-role="tag-options" class="flex flex-wrap gap-2" role="group" aria-labelledby="game-tags-label"></div>
+      </div>
+
+      <div class="field sm:col-span-2">
+        <label for="game-notes">Observações</label>
+        <textarea id="game-notes" name="notes" rows="3" maxlength="2000" class="input-field"></textarea>
+      </div>
+
+      <div class="field sm:col-span-2">
+        <label class="goty-toggle">
+          <input type="checkbox" name="isGoty" class="peer sr-only" />
+          <span class="goty-box peer-checked:border-amber-400 peer-checked:bg-amber-400 peer-checked:text-white peer-focus-visible:ring-2 peer-focus-visible:ring-amber-300">${STAR}</span>
+          <span>
+            <span class="block text-sm font-medium text-gray-900 dark:text-white">Destaque / GOTY</span>
+            <span class="block text-xs text-gray-500 dark:text-gray-400">Marque como "meu jogo do ano".</span>
+          </span>
+        </label>
+      </div>
     </div>
-    <form data-role="game-form" novalidate>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-        <div class="field sm:col-span-2">
-          <label for="game-title">Nome do jogo <span class="text-red-500">*</span></label>
-          <input id="game-title" name="title" required maxlength="200" class="input-field" />
-        </div>
 
-        <div class="field">
-          <label for="game-status">Status <span class="text-red-500">*</span></label>
-          <select id="game-status" name="status" required class="input-field"></select>
-        </div>
+    <p data-role="form-error" class="form-error hidden" role="alert"></p>
 
-        <div class="field">
-          <label for="game-platform">Plataforma</label>
-          <div class="flex gap-2">
-            <select id="game-platform" name="platformId" class="input-field flex-1"></select>
-            <button type="button" data-quick-add="platforms" class="btn-secondary px-3" title="Nova plataforma" aria-label="Nova plataforma">+</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="game-genre">Gênero</label>
-          <div class="flex gap-2">
-            <select id="game-genre" name="genreId" class="input-field flex-1"></select>
-            <button type="button" data-quick-add="genres" class="btn-secondary px-3" title="Novo gênero" aria-label="Novo gênero">+</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="game-type">Tipo</label>
-          <div class="flex gap-2">
-            <select id="game-type" name="typeId" class="input-field flex-1"></select>
-            <button type="button" data-quick-add="types" class="btn-secondary px-3" title="Novo tipo" aria-label="Novo tipo">+</button>
-          </div>
-        </div>
-
-        <div class="field">
-          <label for="game-start">Data de início</label>
-          <input id="game-start" name="startDate" type="date" class="input-field" />
-        </div>
-
-        <div class="field">
-          <label for="game-end">Data de término</label>
-          <input id="game-end" name="endDate" type="date" class="input-field" />
-        </div>
-
-        <p data-role="dates-hint" class="sm:col-span-2 -mt-2 mb-4 text-xs text-gray-500">As datas são opcionais (ex.: jogos na lista de desejo ou planejados).</p>
-
-        <div class="field">
-          <label for="game-playtime">Tempo total</label>
-          <input id="game-playtime" name="playTime" class="input-field" placeholder="HH:MM:SS ou horas (ex.: 12,5)" />
-        </div>
-
-        <div class="field">
-          <label for="game-difficulty">Dificuldade</label>
-          <select id="game-difficulty" name="difficultyId" class="input-field"></select>
-        </div>
-
-        <div class="field sm:col-span-2">
-          <label for="game-score">Nota</label>
-          <select id="game-score" name="score" class="input-field"></select>
-        </div>
-
-        <div class="field sm:col-span-2">
-          <label for="game-condition">Condição de zeramento</label>
-          <div>
-            <input id="game-condition" name="completionCondition" maxlength="300" class="input-field" placeholder="Ex.: Ver os créditos, conquistar as 80 estrelas..." />
-          </div>
-          <p class="text-xs text-gray-500 mt-1">Ao focar ou digitar, sugerimos condições usadas em jogos parecidos do seu histórico.</p>
-        </div>
-
-        <div class="field sm:col-span-2">
-          <div class="flex items-center justify-between gap-2 mb-1.5">
-            <span id="game-tags-label" class="text-sm font-medium text-gray-700">Tags</span>
-            <button type="button" data-quick-add="tags" class="btn-secondary px-3 py-1 text-sm" title="Nova tag" aria-label="Nova tag">+ Nova tag</button>
-          </div>
-          <div data-role="tag-options" class="flex flex-wrap gap-2" role="group" aria-labelledby="game-tags-label"></div>
-        </div>
-
-        <div class="field sm:col-span-2">
-          <label for="game-notes">Observações</label>
-          <textarea id="game-notes" name="notes" rows="3" maxlength="2000" class="input-field"></textarea>
-        </div>
-
-        <div class="field sm:col-span-2">
-          <label class="goty-toggle">
-            <input type="checkbox" name="isGoty" class="sr-only peer" />
-            <span class="goty-box peer-checked:bg-amber-400 peer-checked:text-white peer-checked:border-amber-400 peer-focus-visible:ring-2 peer-focus-visible:ring-amber-300">${STAR}</span>
-            <span>
-              <span class="block text-sm font-medium text-gray-800">Destaque / GOTY</span>
-              <span class="block text-xs text-gray-500">Marque como "meu jogo do ano".</span>
-            </span>
-          </label>
-        </div>
-      </div>
-
-      <p data-role="form-error" class="hidden text-sm text-red-600 mb-3" role="alert"></p>
-
-      <div class="flex gap-3 mt-2">
-        <button type="submit" class="btn-primary">Salvar</button>
-        <button type="button" data-role="cancel" class="btn-secondary">Voltar para a lista</button>
-      </div>
-    </form>
-  </div>
+    <div class="mt-auto flex gap-3 pt-4">
+      <button type="submit" class="btn-primary w-full">Salvar</button>
+      <button type="button" data-role="cancel" class="btn-secondary w-full">Cancelar</button>
+    </div>
+  </form>
 `;
+
+function bulkSelect(id, label, options, { clearable = true } = {}) {
+  const extra = clearable ? [{ value: CLEAR, label: '— Remover —' }] : [];
+  return `
+    <div class="field">
+      <label for="${id}">${label}</label>
+      <select id="${id}" name="${id}" class="input-field">${optionsHtml([...extra, ...options], KEEP, 'Não alterar')}</select>
+    </div>`;
+}
+
+function readBulkSelect(value) {
+  if (value === KEEP) {
+    return undefined;
+  }
+  return value === CLEAR ? null : value;
+}
 
 export function createGamesView(root) {
   root.innerHTML = `
-    <div data-role="list">
-      <div class="panel">
-        <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
-          <div>
-            <h2 class="panel-title mb-1">Minha biblioteca</h2>
-            <p class="text-sm text-gray-500">Todos os seus jogos, em qualquer status.</p>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" data-role="import" class="btn-secondary">Importar JSON</button>
-            <button type="button" data-role="create" class="btn-primary">+ Adicionar jogo</button>
-          </div>
-        </div>
-        <div data-role="table"></div>
-      </div>
-    </div>
-    <div data-role="form-view" class="hidden">${FORM_HTML}</div>
+    <div data-role="list"></div>
     <div data-role="import-view" class="hidden"></div>
   `;
 
   const listView = root.querySelector('[data-role="list"]');
-  const formView = root.querySelector('[data-role="form-view"]');
   const importView = root.querySelector('[data-role="import-view"]');
   const importPanel = createImportPanel(importView, { onClose: () => showList() });
-  const form = root.querySelector('[data-role="game-form"]');
-  const formTitle = root.querySelector('[data-role="form-title"]');
-  const formError = root.querySelector('[data-role="form-error"]');
-  const fields = form.elements;
-  const tagOptions = root.querySelector('[data-role="tag-options"]');
-  let editingId = null;
 
-  const table = createDataTable(root.querySelector('[data-role="table"]'), {
+  const table = createDataTable(listView, {
     getRows: () => store.games,
     searchText: (game) => `${game.title} ${game.completionCondition} ${game.notes} ${gameTags(game).map((tag) => tag.name).join(' ')}`,
-    searchPlaceholder: 'Buscar por nome, condição ou observação...',
+    searchPlaceholder: 'Buscar por nome, condição, observação ou tag...',
     defaultSort: null,
+    itemLabel: 'jogo(s)',
+    toolbarEnd: `
+      <button type="button" data-role="import" class="btn-secondary">${iconSvg('upload', 'h-4 w-4')} Importar JSON</button>
+      <button type="button" data-role="create" class="btn-primary">${iconSvg('plus', 'h-4 w-4')} Adicionar jogo</button>`,
+    selectable: true,
+    bulkActions: [
+      { id: 'edit', label: 'Editar em lote', icon: 'square-pen', variant: 'primary', onClick: (rows) => openBulkEdit(rows) },
+      {
+        id: 'delete',
+        label: 'Excluir selecionados',
+        icon: 'trash-2',
+        variant: 'danger',
+        onClick: async (rows) => {
+          if (!(await confirmDialog(`Excluir ${rows.length} jogo(s)? Essa ação não pode ser desfeita.`))) {
+            return;
+          }
+          try {
+            const removed = await removeGames(rows.map((game) => game.id));
+            await reload('games');
+            table.clearSelection();
+            toast(`${removed} jogo(s) excluído(s).`);
+          } catch (error) {
+            toast(error.message, 'error');
+          }
+        },
+      },
+    ],
     columns: [
       {
         key: 'title',
         label: 'Nome',
         sortable: true,
         render: (game) => `
-          <span class="inline-flex items-center gap-1.5 font-medium text-gray-900">
+          <span class="inline-flex items-center gap-1.5 font-semibold text-gray-900 dark:text-white">
             ${game.isGoty ? `<span class="text-amber-500" title="GOTY - meu jogo do ano">${STAR}</span>` : ''}
             ${escapeHtml(game.title)}
           </span>
-          ${game.completionCondition ? `<span class="block text-xs text-gray-500">${escapeHtml(game.completionCondition)}</span>` : ''}
-          ${gameTags(game).length ? `<span class="flex flex-wrap gap-1 mt-1">${gameTags(game).map((tag) => tagChip(tag)).join('')}</span>` : ''}`,
+          ${game.completionCondition ? `<span class="block text-xs text-gray-500 dark:text-gray-400">${escapeHtml(game.completionCondition)}</span>` : ''}
+          ${gameTags(game).length ? `<span class="mt-1 flex flex-wrap gap-1">${gameTags(game).map((tag) => tagChip(tag)).join('')}</span>` : ''}`,
       },
       {
         key: 'platform',
@@ -234,7 +277,7 @@ export function createGamesView(root) {
           if (!genre && !type) {
             return dash;
           }
-          return `${escapeHtml(genre ?? '-')}${type ? `<span class="block text-xs text-gray-500">${escapeHtml(type)}</span>` : ''}`;
+          return `${escapeHtml(genre ?? '-')}${type ? `<span class="block text-xs text-gray-500 dark:text-gray-400">${escapeHtml(type)}</span>` : ''}`;
         },
       },
       {
@@ -263,27 +306,9 @@ export function createGamesView(root) {
       },
     ],
     filters: [
-      {
-        id: 'platform',
-        label: 'Plataforma',
-        type: 'select',
-        options: () => [...store.platforms].sort(byName).map((item) => ({ value: item.id, label: item.name })),
-        predicate: (game, value) => game.platformId === value,
-      },
-      {
-        id: 'genre',
-        label: 'Gênero',
-        type: 'select',
-        options: () => [...store.genres].sort(byName).map((item) => ({ value: item.id, label: item.name })),
-        predicate: (game, value) => game.genreId === value,
-      },
-      {
-        id: 'status',
-        label: 'Status',
-        type: 'select',
-        options: () => sortedStatuses().map((status) => ({ value: status.id, label: status.name })),
-        predicate: (game, value) => game.status === value,
-      },
+      { id: 'platform', label: 'Plataforma', type: 'select', options: platformOptions, predicate: (game, value) => game.platformId === value },
+      { id: 'genre', label: 'Gênero', type: 'select', options: genreOptions, predicate: (game, value) => game.genreId === value },
+      { id: 'status', label: 'Status', type: 'select', options: statusOptions, predicate: (game, value) => game.status === value },
       { id: 'period', label: 'Período', type: 'date-range', predicate: overlapsPeriod },
       {
         id: 'tag',
@@ -295,7 +320,7 @@ export function createGamesView(root) {
       { id: 'goty', label: 'Só GOTY', type: 'checkbox', predicate: (game) => game.isGoty },
     ],
     actions: [
-      { id: 'edit', label: 'Editar', onClick: (game) => openForm(game) },
+      { id: 'edit', label: 'Editar', onClick: (game) => openGameForm(game) },
       {
         id: 'delete',
         label: 'Excluir',
@@ -315,101 +340,58 @@ export function createGamesView(root) {
     ],
   });
 
-  function typeOptions(genreId) {
-    return [...store.types]
-      .filter((type) => !type.genreId || !genreId || type.genreId === genreId)
-      .sort(byName)
-      .map((type) => {
-        const genre = !genreId && type.genreId ? findById('genres', type.genreId)?.name : null;
-        return { value: type.id, label: genre ? `${type.name} (${genre})` : type.name };
-      });
-  }
+  // ---------- Formulário (drawer) ----------
 
-  function populateSelects(values) {
-    fields.status.innerHTML = optionsHtml(
-      sortedStatuses().map((status) => ({ value: status.id, label: status.name })),
-      values.status
-    );
-    fields.platformId.innerHTML = optionsHtml(
-      [...store.platforms].sort(byName).map((item) => ({ value: item.id, label: item.name })),
-      values.platformId,
-      'Selecione'
-    );
-    fields.genreId.innerHTML = optionsHtml(
-      [...store.genres].sort(byName).map((item) => ({ value: item.id, label: item.name })),
-      values.genreId,
-      'Selecione'
-    );
-    fields.typeId.innerHTML = optionsHtml(typeOptions(values.genreId), values.typeId, 'Selecione');
-    fields.difficultyId.innerHTML = optionsHtml(
-      [...store.difficulties]
-        .sort((a, b) => a.order - b.order)
-        .map((item) => ({ value: item.id, label: `${item.key} — ${item.label}` })),
-      values.difficultyId,
-      'Sem dificuldade'
-    );
-    fields.score.innerHTML = optionsHtml(
-      [...store.scores].sort((a, b) => b.value - a.value).map((item) => ({ value: item.value, label: `${item.value} — ${item.label}` })),
-      values.score,
-      'Sem nota'
-    );
+  function openGameForm(game = null) {
+    const drawer = openDrawer({ title: game ? 'Editar jogo' : 'Adicionar jogo', width: 'max-w-2xl', body: GAME_FORM_HTML });
+    const form = drawer.body.querySelector('[data-role="game-form"]');
+    const fields = form.elements;
+    const tagOptions = form.querySelector('[data-role="tag-options"]');
+    const formError = form.querySelector('[data-role="form-error"]');
 
-    const selectedTags = new Set(values.tagIds || []);
-    const tags = [...store.tags].sort(byName);
-    tagOptions.innerHTML = tags.length
-      ? tags
-          .map(
-            (tag) => `
-              <label class="tag-toggle">
-                <input type="checkbox" name="tagIds" value="${escapeHtml(tag.id)}" class="sr-only"${selectedTags.has(tag.id) ? ' checked' : ''} />
-                ${tagChip(tag)}
-              </label>`
-          )
-          .join('')
-      : '<p class="text-sm text-gray-500">Nenhuma tag cadastrada. Use "+ Nova tag" ou o menu Cadastros &gt; Tags.</p>';
-  }
+    function populateSelects(values) {
+      fields.status.innerHTML = optionsHtml(statusOptions(), values.status);
+      fields.platformId.innerHTML = optionsHtml(platformOptions(), values.platformId, 'Selecione');
+      fields.genreId.innerHTML = optionsHtml(genreOptions(), values.genreId, 'Selecione');
+      fields.typeId.innerHTML = optionsHtml(typeOptions(values.genreId), values.typeId, 'Selecione');
+      fields.difficultyId.innerHTML = optionsHtml(difficultyOptions(), values.difficultyId, 'Sem dificuldade');
+      fields.score.innerHTML = optionsHtml(
+        [...store.scores].sort((a, b) => b.value - a.value).map((item) => ({ value: item.value, label: `${item.value} — ${item.label}` })),
+        values.score,
+        'Sem nota'
+      );
 
-  function currentValues() {
-    return {
-      title: fields.title.value,
-      status: fields.status.value,
-      platformId: fields.platformId.value,
-      genreId: fields.genreId.value,
-      typeId: fields.typeId.value,
-      startDate: fields.startDate.value,
-      endDate: fields.endDate.value,
-      playTime: fields.playTime.value,
-      score: fields.score.value,
-      difficultyId: fields.difficultyId.value,
-      completionCondition: fields.completionCondition.value,
-      notes: fields.notes.value,
-      isGoty: fields.isGoty.checked,
-      tagIds: [...tagOptions.querySelectorAll('input[name="tagIds"]:checked')].map((input) => input.value),
-    };
-  }
+      const tags = [...store.tags].sort(byName);
+      tagOptions.innerHTML = tags.length
+        ? tagToggles('tagIds', tags, new Set(values.tagIds || []))
+        : '<p class="muted">Nenhuma tag cadastrada. Use "Nova tag" ou o menu Cadastros &gt; Tags.</p>';
+    }
 
-  function showError(message) {
-    formError.textContent = message;
-    formError.classList.toggle('hidden', !message);
-  }
+    function currentValues() {
+      return {
+        title: fields.title.value,
+        status: fields.status.value,
+        platformId: fields.platformId.value,
+        genreId: fields.genreId.value,
+        typeId: fields.typeId.value,
+        startDate: fields.startDate.value,
+        endDate: fields.endDate.value,
+        playTime: fields.playTime.value,
+        score: fields.score.value,
+        difficultyId: fields.difficultyId.value,
+        completionCondition: fields.completionCondition.value,
+        notes: fields.notes.value,
+        isGoty: fields.isGoty.checked,
+        tagIds: [...tagOptions.querySelectorAll('input[name="tagIds"]:checked')].map((input) => input.value),
+      };
+    }
 
-  function showList() {
-    formView.classList.add('hidden');
-    importView.classList.add('hidden');
-    listView.classList.remove('hidden');
-    editingId = null;
-  }
+    function showError(message) {
+      formError.textContent = message;
+      formError.classList.toggle('hidden', !message);
+    }
 
-  function openForm(game = null) {
-    editingId = game?.id ?? null;
-    formTitle.textContent = game ? 'Editar jogo' : 'Cadastrar jogo';
-    form.reset();
-    showError('');
-
-    const values = game
-      ? { ...game, playTime: formatPlayTime(game.playTimeSeconds) }
-      : { status: 'planned' };
-
+    const values = game ? { ...game, playTime: formatPlayTime(game.playTimeSeconds) } : { status: 'planned' };
     populateSelects(values);
     fields.title.value = values.title ?? '';
     fields.startDate.value = values.startDate ?? '';
@@ -419,87 +401,186 @@ export function createGamesView(root) {
     fields.notes.value = values.notes ?? '';
     fields.isGoty.checked = Boolean(values.isGoty);
 
-    listView.classList.add('hidden');
-    formView.classList.remove('hidden');
-    window.scrollTo({ top: 0 });
-    fields.title.focus();
-  }
+    fields.genreId.addEventListener('change', () => {
+      const current = currentValues();
+      const type = findById('types', current.typeId);
+      if (type?.genreId && current.genreId && type.genreId !== current.genreId) {
+        current.typeId = '';
+      }
+      fields.typeId.innerHTML = optionsHtml(typeOptions(current.genreId), current.typeId, 'Selecione');
+    });
 
-  fields.genreId.addEventListener('change', () => {
-    const values = currentValues();
-    const type = findById('types', values.typeId);
-    if (type?.genreId && values.genreId && type.genreId !== values.genreId) {
-      values.typeId = '';
-    }
-    fields.typeId.innerHTML = optionsHtml(typeOptions(values.genreId), values.typeId, 'Selecione');
-  });
+    fields.typeId.addEventListener('change', () => {
+      const type = findById('types', fields.typeId.value);
+      if (type?.genreId && !fields.genreId.value) {
+        populateSelects({ ...currentValues(), genreId: type.genreId });
+      }
+    });
 
-  fields.typeId.addEventListener('change', () => {
-    const type = findById('types', fields.typeId.value);
-    if (type?.genreId && !fields.genreId.value) {
-      const values = { ...currentValues(), genreId: type.genreId };
-      populateSelects(values);
-    }
-  });
+    attachConditionSuggestions(fields.completionCondition, () => ({
+      games: store.games,
+      genreId: fields.genreId.value || null,
+      typeId: fields.typeId.value || null,
+      platformId: fields.platformId.value || null,
+      excludeGameId: game?.id ?? null,
+    }));
 
-  attachConditionSuggestions(fields.completionCondition, () => ({
-    games: store.games,
-    genreId: fields.genreId.value || null,
-    typeId: fields.typeId.value || null,
-    platformId: fields.platformId.value || null,
-    excludeGameId: editingId,
-  }));
-
-  form.querySelectorAll('[data-quick-add]').forEach((button) => {
-    button.addEventListener('click', async () => {
-      const collection = button.dataset.quickAdd;
-      const saved = await openCatalogForm(collection);
-      if (saved) {
-        const values = currentValues();
+    form.querySelectorAll('[data-quick-add]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const collection = button.dataset.quickAdd;
+        const saved = await openCatalogForm(collection);
+        if (!saved) {
+          return;
+        }
+        const current = currentValues();
         if (collection === 'tags') {
-          populateSelects({ ...values, tagIds: [...values.tagIds, saved.id] });
+          populateSelects({ ...current, tagIds: [...current.tagIds, saved.id] });
           return;
         }
         const field = { platforms: 'platformId', genres: 'genreId', types: 'typeId' }[collection];
-        populateSelects({ ...values, [field]: saved.id, ...(saved.genreId && collection === 'types' ? { genreId: saved.genreId } : {}) });
+        populateSelects({ ...current, [field]: saved.id, ...(saved.genreId && collection === 'types' ? { genreId: saved.genreId } : {}) });
+      });
+    });
+
+    form.querySelector('[data-role="cancel"]').addEventListener('click', drawer.close);
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      showError('');
+
+      const current = currentValues();
+      if (!current.title.trim()) {
+        showError('O nome do jogo é obrigatório.');
+        fields.title.focus();
+        return;
+      }
+
+      if (current.startDate && current.endDate && current.endDate < current.startDate) {
+        showError('A data de término não pode ser anterior à data de início.');
+        return;
+      }
+
+      const submitButton = form.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+
+      try {
+        await saveGame(current, game ? findById('games', game.id) : null);
+        await reload('games');
+        toast('Jogo salvo com sucesso.');
+        drawer.close();
+      } catch (error) {
+        showError(error.message);
+        submitButton.disabled = false;
       }
     });
-  });
 
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    showError('');
+    fields.title.focus();
+  }
 
-    const values = currentValues();
-    if (!values.title.trim()) {
-      showError('O nome do jogo é obrigatório.');
-      fields.title.focus();
-      return;
-    }
+  // ---------- Edição em lote (drawer) ----------
 
-    if (values.startDate && values.endDate && values.endDate < values.startDate) {
-      showError('A data de término não pode ser anterior à data de início.');
-      return;
-    }
+  function openBulkEdit(games) {
+    const tags = [...store.tags].sort(byName);
+    const usedTagIds = new Set(games.flatMap((game) => game.tagIds));
+    const usedTags = tags.filter((tag) => usedTagIds.has(tag.id));
 
-    const submitButton = form.querySelector('button[type="submit"]');
-    submitButton.disabled = true;
+    const drawer = openDrawer({
+      title: `Editar ${games.length} jogo(s)`,
+      width: 'max-w-lg',
+      body: `
+        <form data-role="bulk-form" novalidate class="flex flex-1 flex-col">
+          <p class="mb-5 rounded-lg bg-primary-50 p-3 text-sm text-primary-800 dark:bg-gray-700 dark:text-primary-300">
+            Só os campos alterados serão aplicados. "Não alterar" mantém o valor de cada jogo.
+          </p>
+          ${bulkSelect('status', 'Status', statusOptions(), { clearable: false })}
+          ${bulkSelect('platformId', 'Plataforma', platformOptions())}
+          ${bulkSelect('genreId', 'Gênero', genreOptions())}
+          ${bulkSelect('typeId', 'Tipo', typeOptions(null))}
+          <p class="hint -mt-2 mb-4">Um tipo ligado a um gênero também define o gênero. Ao trocar o gênero, tipos de outro gênero são removidos.</p>
+          ${bulkSelect('difficultyId', 'Dificuldade', difficultyOptions())}
+          <div class="field">
+            <label for="bulk-goty">Destaque / GOTY</label>
+            <select id="bulk-goty" name="isGoty" class="input-field">${optionsHtml(
+              [
+                { value: 'true', label: 'Marcar como GOTY' },
+                { value: 'false', label: 'Remover GOTY' },
+              ],
+              KEEP,
+              'Não alterar'
+            )}</select>
+          </div>
+          <div class="field">
+            <span class="field-label">Adicionar tags</span>
+            <div class="flex flex-wrap gap-2">${tags.length ? tagToggles('addTagIds', tags) : '<p class="muted">Nenhuma tag cadastrada.</p>'}</div>
+          </div>
+          <div class="field">
+            <span class="field-label">Remover tags</span>
+            <div class="flex flex-wrap gap-2">${usedTags.length ? tagToggles('removeTagIds', usedTags) : '<p class="muted">Os jogos selecionados não têm tags.</p>'}</div>
+          </div>
+          <p data-role="form-error" class="form-error hidden" role="alert"></p>
+          <div class="mt-auto flex gap-3 pt-4">
+            <button type="submit" class="btn-primary w-full">Aplicar a ${games.length} jogo(s)</button>
+            <button type="button" data-role="cancel" class="btn-secondary w-full">Cancelar</button>
+          </div>
+        </form>`,
+    });
 
-    try {
-      await saveGame(values, editingId ? findById('games', editingId) : null);
-      await reload('games');
-      toast('Jogo salvo com sucesso.');
-      showList();
-    } catch (error) {
-      showError(error.message);
-    } finally {
-      submitButton.disabled = false;
-    }
-  });
+    const form = drawer.body.querySelector('[data-role="bulk-form"]');
+    const formError = form.querySelector('[data-role="form-error"]');
+    form.querySelector('[data-role="cancel"]').addEventListener('click', drawer.close);
 
-  root.querySelector('[data-role="cancel"]').addEventListener('click', showList);
-  root.querySelector('[data-role="create"]').addEventListener('click', () => openForm());
-  root.querySelector('[data-role="import"]').addEventListener('click', () => {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const fields = form.elements;
+      const checked = (name) => [...form.querySelectorAll(`input[name="${name}"]:checked`)].map((input) => input.value);
+      const changes = {
+        status: readBulkSelect(fields.status.value),
+        platformId: readBulkSelect(fields.platformId.value),
+        genreId: readBulkSelect(fields.genreId.value),
+        typeId: readBulkSelect(fields.typeId.value),
+        difficultyId: readBulkSelect(fields.difficultyId.value),
+        isGoty: fields.isGoty.value === KEEP ? undefined : fields.isGoty.value === 'true',
+        addTagIds: checked('addTagIds'),
+        removeTagIds: checked('removeTagIds'),
+      };
+
+      const nothing =
+        ['status', 'platformId', 'genreId', 'typeId', 'difficultyId', 'isGoty'].every((key) => changes[key] === undefined) &&
+        !changes.addTagIds.length &&
+        !changes.removeTagIds.length;
+      if (nothing) {
+        formError.textContent = 'Escolha pelo menos uma alteração.';
+        formError.classList.remove('hidden');
+        return;
+      }
+
+      const submitButton = form.querySelector('button[type="submit"]');
+      submitButton.disabled = true;
+      formError.classList.add('hidden');
+
+      try {
+        const { updated, unchanged } = await bulkUpdateGames(games, changes);
+        await reload('games');
+        table.clearSelection();
+        toast(`${updated} jogo(s) atualizado(s).${unchanged ? ` ${unchanged} já estavam assim.` : ''}`);
+        drawer.close();
+      } catch (error) {
+        formError.textContent = error.message;
+        formError.classList.remove('hidden');
+        submitButton.disabled = false;
+      }
+    });
+  }
+
+  // ---------- Navegação interna ----------
+
+  function showList() {
+    importView.classList.add('hidden');
+    listView.classList.remove('hidden');
+  }
+
+  listView.querySelector('[data-role="create"]').addEventListener('click', () => openGameForm());
+  listView.querySelector('[data-role="import"]').addEventListener('click', () => {
     importPanel.reset();
     listView.classList.add('hidden');
     importView.classList.remove('hidden');

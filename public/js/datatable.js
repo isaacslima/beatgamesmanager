@@ -1,8 +1,11 @@
+// Tabela no estilo da página de produtos do Flowbite Admin Dashboard: barra de busca/filtros,
+// seleção de linhas com ações em lote, ordenação, paginação e ações por linha.
+import { iconSvg } from './shared/icons.js';
 import { escapeHtml, normalizeText, optionsHtml } from './ui.js';
 
-const ICONS = {
-  edit: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9" stroke-linecap="round"/><path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke-linejoin="round"/></svg>',
-  delete: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+const ROW_ACTIONS = {
+  edit: { icon: 'square-pen', className: 'btn-primary btn-sm' },
+  delete: { icon: 'trash-2', className: 'btn-danger btn-sm' },
 };
 
 let tableCount = 0;
@@ -14,12 +17,13 @@ function isEmptyFilter(value) {
   return value === '' || value === false || value === undefined || value === null;
 }
 
-function compareValues(a, b) {
-  const aEmpty = a === null || a === undefined || a === '';
-  const bEmpty = b === null || b === undefined || b === '';
+function isEmptyValue(value) {
+  return value === null || value === undefined || value === '';
+}
 
-  if (aEmpty || bEmpty) {
-    return aEmpty && bEmpty ? 0 : aEmpty ? 1 : -1;
+function compareValues(a, b) {
+  if (isEmptyValue(a) || isEmptyValue(b)) {
+    return isEmptyValue(a) && isEmptyValue(b) ? 0 : isEmptyValue(a) ? 1 : -1;
   }
 
   if (typeof a === 'number' && typeof b === 'number') {
@@ -30,11 +34,11 @@ function compareValues(a, b) {
 }
 
 /**
- * DataTable com busca, filtros, ordenação e paginação no cliente.
- *
- * columns: [{ key, label, sortable?, sortValue?(row), render?(row) -> HTML, className? }]
- * filters: [{ id, label, type: 'select' | 'date-range' | 'checkbox', options?() -> [{value,label}], predicate(row, value) }]
- * actions: [{ id: 'edit' | 'delete', label, onClick(row) }]
+ * columns:      [{ key, label, sortable?, sortValue?(row), render?(row) -> HTML, className? }]
+ * filters:      [{ id, label, type: 'select' | 'date-range' | 'checkbox', options?(), predicate(row, value) }]
+ * actions:      [{ id: 'edit' | 'delete', label, onClick(row) }]
+ * selectable:   mostra checkboxes; bulkActions: [{ id, label, icon, variant: 'primary'|'danger'|'secondary', onClick(rows) }]
+ * toolbarEnd:   HTML extra no fim da barra (ex.: botão "Adicionar")
  */
 export function createDataTable(root, config) {
   const {
@@ -47,6 +51,10 @@ export function createDataTable(root, config) {
     emptyMessage = 'Nenhum registro encontrado.',
     defaultSort = null,
     pageSizes = [10, 25, 50, 100],
+    selectable = false,
+    bulkActions = [],
+    toolbarEnd = '',
+    itemLabel = 'registro(s)',
   } = config;
 
   const prefix = `dt${++tableCount}`;
@@ -57,60 +65,101 @@ export function createDataTable(root, config) {
     page: 1,
     pageSize: pageSizes[0],
   };
+  const selected = new Set();
 
   function filterHtml(filter) {
     const id = `${prefix}-${filter.id}`;
 
     if (filter.type === 'date-range') {
       return `
-        <div class="field mb-0">
-          <label for="${id}-from">${escapeHtml(filter.label)}: de</label>
+        <div>
+          <label for="${id}-from" class="field-label">${escapeHtml(filter.label)}: de</label>
           <input id="${id}-from" type="date" data-filter="${filter.id}" data-part="from" class="input-field" />
         </div>
-        <div class="field mb-0">
-          <label for="${id}-to">até</label>
+        <div>
+          <label for="${id}-to" class="field-label">até</label>
           <input id="${id}-to" type="date" data-filter="${filter.id}" data-part="to" class="input-field" />
         </div>`;
     }
 
     if (filter.type === 'checkbox') {
       return `
-        <label class="flex items-center gap-2 text-sm text-gray-700 pb-2.5 cursor-pointer">
-          <input type="checkbox" data-filter="${filter.id}" class="w-4 h-4 accent-blue-600" />
+        <label class="flex cursor-pointer items-center gap-2 pb-3 text-sm font-medium text-gray-900 dark:text-gray-300">
+          <input type="checkbox" data-filter="${filter.id}" class="checkbox" />
           ${escapeHtml(filter.label)}
         </label>`;
     }
 
     return `
-      <div class="field mb-0">
-        <label for="${id}">${escapeHtml(filter.label)}</label>
+      <div>
+        <label for="${id}" class="field-label">${escapeHtml(filter.label)}</label>
         <select id="${id}" data-filter="${filter.id}" class="input-field"></select>
       </div>`;
   }
 
+  const bulkVariant = { primary: 'btn-primary', danger: 'btn-danger', secondary: 'btn-secondary' };
+
   root.innerHTML = `
-    <div class="flex flex-wrap items-end gap-3 mb-4">
-      <div class="field mb-0 flex-1 min-w-[12rem]">
-        <label for="${prefix}-search">Buscar</label>
-        <input id="${prefix}-search" type="search" data-role="search" class="input-field" placeholder="${escapeHtml(searchPlaceholder)}" />
+    <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-xs dark:border-gray-700 dark:bg-gray-800">
+      <div class="border-b border-gray-200 p-4 dark:border-gray-700">
+        <div class="flex flex-wrap items-end gap-3">
+          <div class="min-w-[14rem] flex-1">
+            <label for="${prefix}-search" class="sr-only">Buscar</label>
+            <div class="relative">
+              <span class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500 dark:text-gray-400">${iconSvg('search', 'h-4 w-4')}</span>
+              <input id="${prefix}-search" type="search" data-role="search" class="input-field pl-10" placeholder="${escapeHtml(searchPlaceholder)}" />
+            </div>
+          </div>
+          ${filters.length ? `<button type="button" data-role="toggle-filters" class="btn-secondary" aria-expanded="false" aria-controls="${prefix}-filters">${iconSvg('filter', 'h-4 w-4')} Filtros<span data-role="filter-count" class="hidden rounded-full bg-primary-600 px-2 text-xs text-white"></span></button>` : ''}
+          ${toolbarEnd}
+        </div>
+        ${
+          filters.length
+            ? `<div id="${prefix}-filters" data-role="filters" class="mt-4 hidden flex-wrap items-end gap-3">
+                ${filters.map(filterHtml).join('')}
+                <button type="button" data-role="clear" class="btn-secondary">Limpar filtros</button>
+              </div>`
+            : ''
+        }
       </div>
-      ${filters.map(filterHtml).join('')}
-      <button type="button" data-role="clear" class="btn-secondary">Limpar filtros</button>
+
+      ${
+        selectable
+          ? `<div data-role="bulk-bar" class="hidden flex-wrap items-center gap-3 border-b border-gray-200 bg-primary-50 px-4 py-3 dark:border-gray-700 dark:bg-gray-700/60" role="region" aria-label="Ações em lote">
+              <span data-role="bulk-count" class="text-sm font-medium text-gray-900 dark:text-white"></span>
+              <button type="button" data-role="select-all-filtered" class="hidden text-sm font-medium text-primary-700 hover:underline dark:text-primary-400"></button>
+              <div class="ms-auto flex flex-wrap gap-2">
+                ${bulkActions
+                  .map(
+                    (action) =>
+                      `<button type="button" data-bulk="${action.id}" class="${bulkVariant[action.variant || 'secondary']} btn-sm">${action.icon ? iconSvg(action.icon, 'h-4 w-4') : ''}${escapeHtml(action.label)}</button>`
+                  )
+                  .join('')}
+                <button type="button" data-role="clear-selection" class="btn-secondary btn-sm">Limpar seleção</button>
+              </div>
+            </div>`
+          : ''
+      }
+
+      <div class="overflow-x-auto">
+        <table class="data-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div data-role="pagination" class="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800"></div>
     </div>
-    <div class="overflow-x-auto border border-gray-200 rounded-lg">
-      <table class="data-table">
-        <thead></thead>
-        <tbody></tbody>
-      </table>
-    </div>
-    <div data-role="pagination" class="flex flex-wrap items-center justify-between gap-3 mt-4 text-sm text-gray-500"></div>
   `;
 
   const searchInput = root.querySelector('[data-role="search"]');
   const thead = root.querySelector('thead');
   const tbody = root.querySelector('tbody');
   const pagination = root.querySelector('[data-role="pagination"]');
+  const bulkBar = root.querySelector('[data-role="bulk-bar"]');
+  const filtersBox = root.querySelector('[data-role="filters"]');
   let currentRows = [];
+  let filtered = [];
 
   function refreshFilterOptions() {
     filters
@@ -125,7 +174,7 @@ export function createDataTable(root, config) {
       });
   }
 
-  function filteredRows() {
+  function computeRows() {
     const terms = normalizeText(state.search).split(' ').filter(Boolean);
 
     let rows = getRows().filter((row) => {
@@ -151,9 +200,7 @@ export function createDataTable(root, config) {
         .sort((a, b) => {
           const result = compareValues(a.value, b.value);
           // Vazios sempre no fim, independentemente da direção.
-          const aEmpty = a.value === null || a.value === undefined || a.value === '';
-          const bEmpty = b.value === null || b.value === undefined || b.value === '';
-          return aEmpty || bEmpty ? result : result * direction;
+          return isEmptyValue(a.value) || isEmptyValue(b.value) ? result : result * direction;
         })
         .map((item) => item.row);
     }
@@ -162,20 +209,33 @@ export function createDataTable(root, config) {
   }
 
   function renderHead() {
-    const cells = columns.map((column) => {
+    const cells = [];
+
+    if (selectable) {
+      const pageIds = currentRows.map((row) => String(row.id));
+      const allChecked = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+      const someChecked = pageIds.some((id) => selected.has(id));
+      cells.push(`
+        <th class="w-4 p-4">
+          <input type="checkbox" data-role="select-page" class="checkbox" aria-label="Selecionar todos desta página"${allChecked ? ' checked' : ''}${!allChecked && someChecked ? ' data-indeterminate="true"' : ''} />
+        </th>`);
+    }
+
+    columns.forEach((column) => {
       if (!column.sortable) {
-        return `<th class="${column.className || ''}">${escapeHtml(column.label)}</th>`;
+        cells.push(`<th class="${column.className || ''}">${escapeHtml(column.label)}</th>`);
+        return;
       }
 
       const active = state.sort?.key === column.key;
       const arrow = active ? (state.sort.dir === 'asc' ? '▲' : '▼') : '↕';
       const ariaSort = active ? (state.sort.dir === 'asc' ? 'ascending' : 'descending') : 'none';
-      return `
+      cells.push(`
         <th class="${column.className || ''}" aria-sort="${ariaSort}">
-          <button type="button" data-sort="${column.key}" class="sort-btn ${active ? 'text-blue-600' : ''}">
-            ${escapeHtml(column.label)} <span class="text-xs ${active ? '' : 'text-gray-300'}">${arrow}</span>
+          <button type="button" data-sort="${column.key}" class="sort-btn ${active ? 'text-gray-900 dark:text-white' : ''}">
+            ${escapeHtml(column.label)} <span class="text-[0.65rem] ${active ? '' : 'opacity-40'}">${arrow}</span>
           </button>
-        </th>`;
+        </th>`);
     });
 
     if (actions.length) {
@@ -183,36 +243,49 @@ export function createDataTable(root, config) {
     }
 
     thead.innerHTML = `<tr>${cells.join('')}</tr>`;
+    const pageCheckbox = thead.querySelector('[data-role="select-page"]');
+    if (pageCheckbox) {
+      pageCheckbox.indeterminate = pageCheckbox.dataset.indeterminate === 'true';
+    }
   }
 
-  function renderBody(pageRows) {
-    if (!pageRows.length) {
-      const span = columns.length + (actions.length ? 1 : 0);
-      tbody.innerHTML = `<tr><td colspan="${span}" class="text-center text-gray-500 py-8">${escapeHtml(emptyMessage)}</td></tr>`;
+  function renderBody() {
+    const span = columns.length + (actions.length ? 1 : 0) + (selectable ? 1 : 0);
+
+    if (!currentRows.length) {
+      tbody.innerHTML = `<tr><td colspan="${span}" class="py-10 text-center text-gray-500 dark:text-gray-400">${escapeHtml(emptyMessage)}</td></tr>`;
       return;
     }
 
-    tbody.innerHTML = pageRows
+    tbody.innerHTML = currentRows
       .map((row) => {
-        const cells = columns.map((column) => {
+        const id = String(row.id);
+        const isSelected = selected.has(id);
+        const cells = [];
+
+        if (selectable) {
+          cells.push(`<td class="w-4 p-4"><input type="checkbox" data-select="${escapeHtml(id)}" class="checkbox" aria-label="Selecionar"${isSelected ? ' checked' : ''} /></td>`);
+        }
+
+        columns.forEach((column) => {
           const content = column.render ? column.render(row) : escapeHtml(row[column.key] ?? '-');
-          return `<td class="${column.className || ''}">${content}</td>`;
+          cells.push(`<td class="${column.className || ''}">${content}</td>`);
         });
 
         if (actions.length) {
           const buttons = actions
-            .map(
-              (action) => `
-                <button type="button" data-action="${action.id}" data-id="${escapeHtml(row.id)}"
-                  class="icon-btn ${action.id === 'delete' ? 'icon-btn-danger' : ''}" title="${escapeHtml(action.label)}" aria-label="${escapeHtml(action.label)}">
-                  ${ICONS[action.id] || escapeHtml(action.label)}
-                </button>`
-            )
+            .map((action) => {
+              const style = ROW_ACTIONS[action.id] || { className: 'btn-secondary btn-sm' };
+              return `
+                <button type="button" data-action="${action.id}" data-id="${escapeHtml(id)}" class="${style.className}" aria-label="${escapeHtml(action.label)}">
+                  ${style.icon ? iconSvg(style.icon, 'h-4 w-4') : ''}<span class="hidden xl:inline">${escapeHtml(action.label)}</span>
+                </button>`;
+            })
             .join('');
-          cells.push(`<td class="text-right whitespace-nowrap">${buttons}</td>`);
+          cells.push(`<td class="text-right whitespace-nowrap"><div class="inline-flex gap-2">${buttons}</div></td>`);
         }
 
-        return `<tr>${cells.join('')}</tr>`;
+        return `<tr class="${isSelected ? 'is-selected' : ''}">${cells.join('')}</tr>`;
       })
       .join('');
   }
@@ -222,32 +295,71 @@ export function createDataTable(root, config) {
     const last = Math.min(state.page * state.pageSize, total);
 
     pagination.innerHTML = `
-      <div class="flex items-center gap-2">
-        <label for="${prefix}-size">Itens por página</label>
+      <div class="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400">
+        <span>Mostrando <span class="font-semibold text-gray-900 dark:text-white">${first}–${last}</span> de <span class="font-semibold text-gray-900 dark:text-white">${total}</span></span>
+        <label for="${prefix}-size" class="sr-only">Itens por página</label>
         <select id="${prefix}-size" data-role="page-size" class="input-field w-auto py-1.5">
-          ${pageSizes.map((size) => `<option value="${size}"${size === state.pageSize ? ' selected' : ''}>${size}</option>`).join('')}
+          ${pageSizes.map((size) => `<option value="${size}"${size === state.pageSize ? ' selected' : ''}>${size} por página</option>`).join('')}
         </select>
-        <span class="ml-2">${first}–${last} de ${total}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" data-page="prev" class="btn-secondary py-1.5 text-sm" ${state.page <= 1 ? 'disabled' : ''}>Anterior</button>
-        <span>Página ${state.page} de ${totalPages}</span>
-        <button type="button" data-page="next" class="btn-secondary py-1.5 text-sm" ${state.page >= totalPages ? 'disabled' : ''}>Próxima</button>
+        <button type="button" data-page="prev" class="btn-secondary btn-sm" ${state.page <= 1 ? 'disabled' : ''}>${iconSvg('chevron-left', 'h-4 w-4')} Anterior</button>
+        <span class="text-sm text-gray-500 dark:text-gray-400">Página ${state.page} de ${totalPages}</span>
+        <button type="button" data-page="next" class="btn-secondary btn-sm" ${state.page >= totalPages ? 'disabled' : ''}>Próxima ${iconSvg('chevron-right', 'h-4 w-4')}</button>
       </div>
     `;
   }
 
+  function renderBulkBar() {
+    if (!bulkBar) {
+      return;
+    }
+
+    bulkBar.classList.toggle('hidden', selected.size === 0);
+    bulkBar.classList.toggle('flex', selected.size > 0);
+    bulkBar.querySelector('[data-role="bulk-count"]').textContent = `${selected.size} ${itemLabel} selecionado(s)`;
+
+    const selectAll = bulkBar.querySelector('[data-role="select-all-filtered"]');
+    const missing = filtered.filter((row) => !selected.has(String(row.id))).length;
+    selectAll.classList.toggle('hidden', missing === 0);
+    selectAll.textContent = `Selecionar todos os ${filtered.length} resultados`;
+  }
+
+  function renderFilterCount() {
+    const badge = root.querySelector('[data-role="filter-count"]');
+    if (!badge) {
+      return;
+    }
+    const active = filters.filter((filter) => !isEmptyFilter(state.filters[filter.id])).length;
+    badge.textContent = String(active);
+    badge.classList.toggle('hidden', active === 0);
+  }
+
   function render() {
-    const rows = filteredRows();
-    const totalPages = Math.max(1, Math.ceil(rows.length / state.pageSize));
+    // Remove da seleção o que não existe mais (ex.: excluído).
+    const existing = new Set(getRows().map((row) => String(row.id)));
+    [...selected].forEach((id) => {
+      if (!existing.has(id)) {
+        selected.delete(id);
+      }
+    });
+
+    filtered = computeRows();
+    const totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
     state.page = Math.min(Math.max(1, state.page), totalPages);
 
     const start = (state.page - 1) * state.pageSize;
-    currentRows = rows.slice(start, start + state.pageSize);
+    currentRows = filtered.slice(start, start + state.pageSize);
 
     renderHead();
-    renderBody(currentRows);
-    renderPagination(rows.length, totalPages);
+    renderBody();
+    renderPagination(filtered.length, totalPages);
+    renderBulkBar();
+    renderFilterCount();
+  }
+
+  function selectedRows() {
+    return getRows().filter((row) => selected.has(String(row.id)));
   }
 
   let searchTimer = null;
@@ -270,6 +382,22 @@ export function createDataTable(root, config) {
       return;
     }
 
+    if (target.dataset.role === 'select-page') {
+      currentRows.forEach((row) => (target.checked ? selected.add(String(row.id)) : selected.delete(String(row.id))));
+      render();
+      return;
+    }
+
+    if (target.dataset.select !== undefined) {
+      if (target.checked) {
+        selected.add(target.dataset.select);
+      } else {
+        selected.delete(target.dataset.select);
+      }
+      render();
+      return;
+    }
+
     const filterId = target.dataset.filter;
     if (!filterId) {
       return;
@@ -285,13 +413,29 @@ export function createDataTable(root, config) {
     render();
   });
 
+  function setFiltersOpen(open) {
+    if (!filtersBox) {
+      return;
+    }
+    filtersBox.classList.toggle('hidden', !open);
+    filtersBox.classList.toggle('flex', open);
+    root.querySelector('[data-role="toggle-filters"]').setAttribute('aria-expanded', String(open));
+  }
+
   root.addEventListener('click', (event) => {
     const button = event.target.closest('button');
     if (!button || !root.contains(button)) {
       return;
     }
 
-    if (button.dataset.role === 'clear') {
+    const role = button.dataset.role;
+
+    if (role === 'toggle-filters') {
+      setFiltersOpen(filtersBox.classList.contains('hidden'));
+      return;
+    }
+
+    if (role === 'clear') {
       state.search = '';
       state.filters = {};
       state.page = 1;
@@ -304,6 +448,27 @@ export function createDataTable(root, config) {
         }
       });
       render();
+      return;
+    }
+
+    if (role === 'select-all-filtered') {
+      filtered.forEach((row) => selected.add(String(row.id)));
+      render();
+      return;
+    }
+
+    if (role === 'clear-selection') {
+      selected.clear();
+      render();
+      return;
+    }
+
+    if (button.dataset.bulk) {
+      const action = bulkActions.find((item) => item.id === button.dataset.bulk);
+      const rows = selectedRows();
+      if (action && rows.length) {
+        action.onClick(rows);
+      }
       return;
     }
 
@@ -337,6 +502,10 @@ export function createDataTable(root, config) {
       refreshFilterOptions();
       render();
     },
+    clearSelection() {
+      selected.clear();
+      render();
+    },
     setFilter(filterId, value) {
       state.filters[filterId] = value;
       const input = root.querySelector(`[data-filter="${filterId}"]:not([data-part])`);
@@ -347,6 +516,7 @@ export function createDataTable(root, config) {
           input.value = value;
         }
       }
+      setFiltersOpen(true);
       state.page = 1;
       render();
     },

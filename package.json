@@ -15,7 +15,9 @@
     "deploy:hosting": "firebase deploy --only hosting",
     "emulators": "firebase emulators:start --only hosting",
     "test:rules": "firebase emulators:exec --only firestore --project demo-beatgames-rules \"node --test rules-tests/firestore-rules.mjs\"",
-    "build:icons": "node scripts/build-icons.mjs"
+    "build:icons": "node scripts/build-icons.mjs",
+    "build:css": "tailwindcss -i styles/app.css -o public/css/app.css --minify",
+    "watch:css": "tailwindcss -i styles/app.css -o public/css/app.css --watch"
   },
   "repository": {
     "type": "git",
@@ -31,9 +33,12 @@
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.2",
+    "@tailwindcss/cli": "^4.3.3",
     "express": "^5.2.1",
     "firebase": "^12.19.0",
     "firebase-tools": "~15.32.1",
-    "lucide-static": "^1.49.0"
+    "flowbite": "^3.1.2",
+    "lucide-static": "^1.49.0",
+    "tailwindcss": "^4.3.3"
   }
 }

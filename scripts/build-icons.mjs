@@ -8,7 +8,15 @@ const require = createRequire(import.meta.url);
 const pkg = require('lucide-static/package.json');
 const iconsDir = new URL('../node_modules/lucide-static/icons/', import.meta.url);
 
-// [nome no Lucide, rótulo em português usado na busca do seletor]
+// Ícones da interface (menu, botões). Não aparecem no seletor de ícones das tags.
+const UI_ICONS = [
+  'layout-dashboard', 'gamepad-2', 'circle-check', 'tags', 'monitor', 'shapes', 'list', 'star',
+  'chart-no-axes-column-increasing', 'menu', 'sun', 'moon', 'log-out', 'chevron-down', 'chevron-left',
+  'chevron-right', 'upload', 'download', 'plus', 'square-pen', 'trash-2', 'x', 'search', 'triangle-alert',
+  'filter', 'check', 'list-checks', 'user-round', 'house', 'pencil', 'square-check', 'circle-alert', 'info',
+];
+
+// Ícones disponíveis para as tags: [nome no Lucide, rótulo em português usado na busca do seletor]
 const SELECTION = [
   ['tag', 'Etiqueta'],
   ['gamepad-2', 'Controle'],
@@ -102,8 +110,9 @@ const SELECTION = [
 
 const icons = {};
 const missing = [];
+const uiOnly = UI_ICONS.filter((name) => !SELECTION.some(([tagIcon]) => tagIcon === name));
 
-for (const [name, label] of SELECTION) {
+for (const [name, label] of [...SELECTION, ...uiOnly.map((name) => [name, name])]) {
   let source;
   try {
     source = readFileSync(new URL(`${name}.svg`, iconsDir), 'utf8');
@@ -130,7 +139,8 @@ const output = `// Gerado por scripts/build-icons.mjs a partir do lucide-static 
 // Não edite à mão: ajuste a seleção no script e rode \`npm run build:icons\`.
 export const ICONS = ${JSON.stringify(icons, null, 2)};
 
-export const ICON_NAMES = Object.keys(ICONS);
+// Ícones que podem ser escolhidos para as tags (os demais são só da interface).
+export const ICON_NAMES = ${JSON.stringify(SELECTION.map(([name]) => name))};
 
 export const DEFAULT_ICON = 'tag';
 
@@ -141,4 +151,4 @@ export function iconSvg(name, className = 'w-4 h-4') {
 `;
 
 writeFileSync(new URL('../public/js/shared/icons.js', import.meta.url), output);
-console.log(`public/js/shared/icons.js gerado com ${Object.keys(icons).length} ícones (lucide-static ${pkg.version}).`);
+console.log(`public/js/shared/icons.js gerado: ${SELECTION.length} ícones para tags + ${uiOnly.length} da interface (lucide-static ${pkg.version}).`);

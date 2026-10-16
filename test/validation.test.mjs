@@ -124,3 +124,8 @@ test('parseGame normaliza tagIds e limita a quantidade', () => {
   assert.match(parseGame({ title: 'X', status: 'planned', tagIds: 'a' }).error, /lista/);
   assert.match(parseGame({ title: 'X', status: 'planned', tagIds: Array.from({ length: 21 }, (_, i) => `t${i}`) }).error, /20 tags/);
 });
+
+test('parseTag não aceita ícones que são só da interface', () => {
+  assert.equal(parseTag({ name: 'X', icon: 'menu' }).data.icon, 'tag');
+  assert.equal(parseTag({ name: 'X', icon: 'trophy' }).data.icon, 'trophy');
+});
