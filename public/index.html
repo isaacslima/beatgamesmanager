@@ -6,7 +6,7 @@
     <title>Beat Games Manager</title>
     <link rel="stylesheet" href="/styles.css" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   </head>
   <body>
     <div id="auth-loading" class="min-h-screen flex items-center justify-center text-gray-500">Carregando...</div>
@@ -51,29 +51,50 @@
       </div>
     </div>
 
-    <div id="app-view" class="hidden flex min-h-screen">
-      <aside class="w-64 bg-white border-r border-gray-200 fixed inset-y-0 left-0 flex flex-col p-4">
+    <div id="app-view" class="hidden min-h-screen">
+      <div id="sidebar-backdrop" class="hidden fixed inset-0 bg-black/40 z-30 md:hidden"></div>
+
+      <aside id="sidebar" class="w-64 bg-white border-r border-gray-200 fixed inset-y-0 left-0 z-40 flex flex-col p-4 -translate-x-full md:translate-x-0 transition-transform">
         <div class="flex items-center gap-2 px-2 py-3">
           <span class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-bold">B</span>
           <span class="font-semibold text-lg">Beat Games</span>
         </div>
 
-        <nav class="mt-6 flex flex-col gap-1">
-          <button type="button" id="nav-dashboard" class="sidebar-link active" data-view="dashboard">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="9" rx="1.5" />
-              <rect x="14" y="3" width="7" height="5" rx="1.5" />
-              <rect x="14" y="12" width="7" height="9" rx="1.5" />
-              <rect x="3" y="16" width="7" height="5" rx="1.5" />
-            </svg>
+        <nav class="mt-6 flex flex-col gap-1" aria-label="Menu principal">
+          <button type="button" class="sidebar-link" data-view="dashboard">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></svg>
             Dashboard
           </button>
-          <button type="button" id="nav-games" class="sidebar-link" data-view="games">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="2" y="6" width="20" height="12" rx="3" />
-              <path d="M7 10v4M5 12h4M15.5 11.5h.01M18 13h.01" stroke-linecap="round" />
-            </svg>
+          <button type="button" class="sidebar-link" data-view="games">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="3" /><path d="M7 10v4M5 12h4M15.5 11.5h.01M18 13h.01" stroke-linecap="round" /></svg>
             Jogos
+          </button>
+
+          <p class="mt-4 mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Cadastros</p>
+
+          <button type="button" class="sidebar-link" data-view="statuses">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M8 12l3 3 5-6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+            Status
+          </button>
+          <button type="button" class="sidebar-link" data-view="platforms">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2" /><path d="M8 20h8M12 16v4" stroke-linecap="round" /></svg>
+            Plataformas
+          </button>
+          <button type="button" class="sidebar-link" data-view="genres">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.6 13.4l-7.2 7.2a2 2 0 01-2.8 0L3 13V3h10l7.6 7.6a2 2 0 010 2.8z" stroke-linejoin="round" /><path d="M7.5 7.5h.01" stroke-linecap="round" /></svg>
+            Gêneros
+          </button>
+          <button type="button" class="sidebar-link" data-view="types">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h10M4 18h6" stroke-linecap="round" /></svg>
+            Tipos
+          </button>
+          <button type="button" class="sidebar-link" data-view="scores">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17.3l-6.2 3.7 1.6-7-5.4-4.7 7.1-.6L12 2l2.9 6.7 7.1.6-5.4 4.7 1.6 7z" stroke-linejoin="round" /></svg>
+            Notas / Avaliações
+          </button>
+          <button type="button" class="sidebar-link" data-view="difficulties">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V14M10 20V9M16 20V4M22 20H2" stroke-linecap="round" /></svg>
+            Níveis de Dificuldade
           </button>
         </nav>
 
@@ -83,203 +104,31 @@
         </div>
       </aside>
 
-      <div class="flex-1 ml-64">
-        <header class="bg-white border-b border-gray-200 px-6 py-4">
-          <h1 id="page-title" class="text-lg font-semibold">Dashboard</h1>
-          <p class="text-sm text-gray-500">Gerencie sua biblioteca de jogos que você quer zerar.</p>
+      <div class="md:ml-64">
+        <header class="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 flex items-center gap-3">
+          <button type="button" id="menu-btn" class="md:hidden icon-btn" aria-label="Abrir menu" aria-controls="sidebar" aria-expanded="false">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16" stroke-linecap="round" /></svg>
+          </button>
+          <div>
+            <h1 id="page-title" class="text-lg font-semibold">Dashboard</h1>
+            <p id="page-subtitle" class="text-sm text-gray-500"></p>
+          </div>
         </header>
 
-        <main class="p-6">
-          <section id="dashboard-view">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-              <div class="panel flex items-center gap-4">
-                <span class="flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 text-blue-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <rect x="2" y="6" width="20" height="12" rx="3" />
-                  </svg>
-                </span>
-                <div>
-                  <p class="text-sm text-gray-500">Total de jogos</p>
-                  <p id="stat-total-games" class="text-2xl font-bold">0</p>
-                </div>
-              </div>
-
-              <div class="panel flex items-center gap-4">
-                <span class="flex items-center justify-center w-12 h-12 rounded-full bg-emerald-50 text-emerald-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 3l9 6-9 6-9-6 9-6zM3 15l9 6 9-6" stroke-linejoin="round" />
-                  </svg>
-                </span>
-                <div>
-                  <p class="text-sm text-gray-500">Plataformas com jogos</p>
-                  <p id="stat-total-platforms" class="text-2xl font-bold">0</p>
-                </div>
-              </div>
-
-              <div class="panel flex items-center gap-4">
-                <span class="flex items-center justify-center w-12 h-12 rounded-full bg-amber-50 text-amber-600">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M12 17.3l-6.2 3.7 1.6-7-5.4-4.7 7.1-.6L12 2l2.9 6.7 7.1.6-5.4 4.7 1.6 7z" stroke-linejoin="round" />
-                  </svg>
-                </span>
-                <div>
-                  <p class="text-sm text-gray-500">Plataforma mais usada</p>
-                  <p id="stat-top-platform" class="text-xl font-bold">-</p>
-                </div>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div class="panel">
-                <h2 class="panel-title">Top 7 plataformas</h2>
-                <canvas id="platform-chart"></canvas>
-              </div>
-
-              <div class="panel">
-                <h2 class="panel-title">Últimos 9 jogos cadastrados</h2>
-                <div id="last-games-list"></div>
-              </div>
-            </div>
-          </section>
-
-          <section id="games-view" class="hidden">
-            <div id="games-list-view">
-              <div class="panel mb-6">
-                <div class="flex flex-wrap items-end justify-between gap-4 mb-4">
-                  <h2 class="panel-title mb-0">Minha lista</h2>
-                  <button type="button" id="add-game-btn" class="btn-primary">+ Adicionar jogo</button>
-                </div>
-
-                <div class="flex flex-wrap items-end gap-4 mb-4">
-                  <div class="field mb-0">
-                    <label for="filter-name">Nome</label>
-                    <div class="flex gap-2">
-                      <input id="filter-name" type="text" placeholder="Buscar por nome" class="input-field" />
-                      <button type="button" id="filter-name-btn" class="btn-secondary whitespace-nowrap">Buscar</button>
-                    </div>
-                  </div>
-                  <div class="field mb-0">
-                    <label for="filter-platform">Plataforma</label>
-                    <select id="filter-platform" class="input-field">
-                      <option value="">Todas</option>
-                    </select>
-                  </div>
-                  <div class="field mb-0">
-                    <label for="filter-start">De</label>
-                    <input id="filter-start" type="date" class="input-field" />
-                  </div>
-                  <div class="field mb-0">
-                    <label for="filter-end">Até</label>
-                    <input id="filter-end" type="date" class="input-field" />
-                  </div>
-                  <button type="button" id="clear-filters-btn" class="btn-secondary">Limpar filtros</button>
-                </div>
-
-                <div id="games-list"></div>
-                <div id="games-pagination" class="flex items-center justify-between mt-4"></div>
-              </div>
-
-              <div class="panel">
-                <h2 class="panel-title">Pesquisar jogos em API externa</h2>
-                <form id="search-form" class="flex gap-2 mb-3">
-                  <input id="search-term" placeholder="Ex.: Hollow Knight" class="input-field flex-1" />
-                  <button type="submit" class="btn-primary">Buscar</button>
-                </form>
-                <div id="search-results"></div>
-              </div>
-            </div>
-
-            <div id="game-form-view" class="hidden">
-              <div class="panel max-w-2xl">
-                <h2 class="panel-title" id="game-form-title">Cadastrar jogo</h2>
-                <form id="game-form">
-                  <input type="hidden" id="game-id" />
-
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
-                    <div class="field sm:col-span-2">
-                      <label for="name">Nome</label>
-                      <input id="name" name="name" required class="input-field" />
-                    </div>
-
-                    <div class="field sm:col-span-2">
-                      <label for="platform">Plataforma</label>
-                      <div class="flex items-center gap-2">
-                        <select id="platform" name="platform" class="input-field flex-1">
-                          <option value="">Selecione</option>
-                        </select>
-                        <img id="platform-thumb" class="hidden w-9 h-9 object-cover rounded-lg border border-gray-200" alt="" />
-                        <button type="button" id="add-platform-btn" class="btn-secondary whitespace-nowrap text-sm">+ Nova plataforma</button>
-                      </div>
-                    </div>
-
-                    <div id="emulator-wrapper" class="field hidden sm:col-span-2">
-                      <label for="emulatorName">Emulador</label>
-                      <input id="emulatorName" class="input-field" />
-                    </div>
-
-                    <div class="field">
-                      <label for="startDate">Data de início</label>
-                      <input id="startDate" name="startDate" type="date" class="input-field" />
-                    </div>
-
-                    <div class="field">
-                      <label for="endDate">Data de término</label>
-                      <input id="endDate" name="endDate" type="date" class="input-field" />
-                    </div>
-
-                    <div class="field sm:col-span-2">
-                      <label for="notes">Observações</label>
-                      <textarea id="notes" name="notes" class="input-field" rows="3"></textarea>
-                    </div>
-
-                    <div class="field sm:col-span-2">
-                      <label for="rating">Nota (0 a 10)</label>
-                      <div class="flex items-center gap-3">
-                        <input id="rating" name="rating" type="range" min="0" max="10" step="0.1" value="0" class="w-full accent-blue-600" />
-                        <span id="rating-value" class="w-10 text-right font-semibold">0</span>
-                      </div>
-                    </div>
-
-                    <div class="field">
-                      <label for="totalPlayTimeHours">Tempo total jogado (horas)</label>
-                      <input id="totalPlayTimeHours" name="totalPlayTimeHours" type="number" min="0" step="0.1" class="input-field" />
-                    </div>
-                  </div>
-
-                  <div class="flex gap-3 mt-2">
-                    <button type="submit" class="btn-primary">Salvar</button>
-                    <button type="button" id="cancel-edit" class="btn-secondary">Voltar para a lista</button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          </section>
+        <main class="p-4 sm:p-6">
+          <p id="load-error" class="hidden panel mb-4 text-sm text-red-600" role="alert"></p>
+          <section id="view-dashboard" data-view-panel="dashboard"></section>
+          <section id="view-games" data-view-panel="games" class="hidden"></section>
+          <section id="view-statuses" data-view-panel="statuses" class="hidden"></section>
+          <section id="view-platforms" data-view-panel="platforms" class="hidden"></section>
+          <section id="view-genres" data-view-panel="genres" class="hidden"></section>
+          <section id="view-types" data-view-panel="types" class="hidden"></section>
+          <section id="view-scores" data-view-panel="scores" class="hidden"></section>
+          <section id="view-difficulties" data-view-panel="difficulties" class="hidden"></section>
         </main>
       </div>
     </div>
 
-    <div id="platform-modal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div class="panel w-full max-w-sm">
-        <h2 class="panel-title">Nova plataforma</h2>
-        <form id="platform-form">
-          <div class="field">
-            <label for="platform-name">Nome</label>
-            <input id="platform-name" name="name" required class="input-field" />
-          </div>
-
-          <div class="field">
-            <label for="platform-image">Imagem</label>
-            <input id="platform-image" name="image" type="file" accept="image/*" class="input-field" />
-          </div>
-
-          <div class="flex gap-3">
-            <button type="submit" class="btn-primary">Salvar</button>
-            <button type="button" id="cancel-platform" class="btn-secondary">Cancelar</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <script type="module" src="/app.js"></script>
+    <script type="module" src="/js/main.js"></script>
   </body>
 </html>

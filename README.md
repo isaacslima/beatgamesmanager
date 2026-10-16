@@ -1,17 +1,20 @@
 # Beat Games Manager
 
-Projeto para gerenciar jogos que você quer zerar, com:
+Gerenciador de biblioteca de jogos: lista de desejo, planejados, zerados e dropados.
+A especificação completa está em [`docs/especifica_o_de_features_beat_games.md`](docs/especifica_o_de_features_beat_games.md).
 
-- Nome do jogo
-- Plataforma (ex.: Nintendo Wii U, Nintendo DS, PC com emulador)
-- Emulador (quando a plataforma for PC com emulador)
-- Data de início
-- Data de término
-- Observações
-- Nota (0 a 10)
-- Tempo total jogado em horas (opcional)
+## Funcionalidades
 
-Também inclui busca opcional de jogos em API externa (CheapShark).
+- **Dashboard**: cards de totais (jogos, plataformas, zerados, lista de desejo), gráficos por nota (11 a 1), por dificuldade (C a AAA), top plataformas e lista dos jogos GOTY.
+- **Jogos**: DataTable com busca, filtros (plataforma, gênero, status, período e GOTY), ordenação por coluna e paginação.
+- **Cadastros** com CRUD e DataTable próprios: Status (nome, cor e ordem editáveis), Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
+- **Campos do jogo**: nome, plataforma, gênero, tipo, status, data de início e término (opcionais), tempo total (`HH:MM:SS`, `HH:MM` ou horas decimais), nota, dificuldade, condição de zeramento, destaque/GOTY e observações.
+- **Condição de zeramento com sugestões**: ao focar ou digitar no campo, o sistema sugere condições já usadas no seu histórico, priorizando jogos do mesmo tipo, gênero e plataforma, além de exemplos padrão.
+- **Integridade**: não é possível excluir plataforma, gênero, tipo, nota ou dificuldade em uso por algum jogo.
+- **Importação via JSON** (Jogos > Importar JSON): baixe o exemplo, selecione o arquivo e confira a prévia linha a linha (erros, possíveis duplicados e cadastros que serão criados) antes de confirmar. Plataformas, gêneros e tipos são informados pelo nome e criados se não existirem; status, dificuldade e nota precisam já estar cadastrados.
+- No primeiro acesso, cada usuário recebe os status (Lista de Desejo, Planejado para Jogar, Zerado, Dropado), a escala de notas (11 - Jogo da vida até 1 - Tragédia) e as dificuldades (C/Fácil até AAA/Imperdoável). Tudo é editável; "Lista de Desejo" e "Zerado" podem ser renomeados, mas não excluídos, porque alimentam os cards do dashboard.
+- **Dados por usuário**: cada conta tem os próprios jogos e cadastros; o backend só acessa `users/{uid}` do usuário do token.
+- Busca opcional do nome do jogo na API externa (CheapShark), direto no formulário.
 
 ## Stack atual
 
@@ -25,9 +28,18 @@ Também inclui busca opcional de jogos em API externa (CheapShark).
 Cada usuário tem seus próprios dados no Firestore:
 
 ```
-users/{uid}/games/{gameId}
-users/{uid}/platforms/{platformId}
+users/{uid}                       { defaultsSeededAt }
+users/{uid}/games/{gameId}        title, platformId, genreId, typeId, status, startDate, endDate,
+                                  playTimeSeconds, score, difficultyId, completionCondition, isGoty, notes
+users/{uid}/statuses/{id}         name, color, order, description
+users/{uid}/platforms/{id}        name, imageUrl
+users/{uid}/genres/{id}           name, description
+users/{uid}/types/{id}            name, genreId (opcional), description
+users/{uid}/scores/{valor}        value (1–11), label, description
+users/{uid}/difficulties/{id}     key (C…AAA), label, order, description
 ```
+
+O campo `status` do jogo guarda o id de um registro em `statuses` (os padrões usam os ids `wishlist`, `planned`, `completed` e `dropped`).
 
 ## Requisitos
 
@@ -54,7 +66,7 @@ Configure na Vercel (**Settings > Environment Variables**) e, localmente, em `.e
 
 Alternativa ao `FIREBASE_SERVICE_ACCOUNT`: `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` (com `\n` nas quebras de linha). Sem nenhuma delas, o backend usa `GOOGLE_APPLICATION_CREDENTIALS`.
 
-> A configuração web do Firebase (apiKey etc.) fica em `public/auth.js`. Ela é pública por natureza; a segurança vem das regras do Firestore e da verificação do token no backend.
+> A configuração web do Firebase (apiKey etc.) fica em `public/js/auth.js`. Ela é pública por natureza; a segurança vem das regras do Firestore e da verificação do token no backend.
 
 ## Instalação e execução local
 
@@ -69,7 +81,7 @@ A aplicação fica disponível em `http://localhost:3000`.
 
 - `npm start`: inicia servidor local
 - `npm run dev`: inicia servidor local com watch
-- `npm test`: executa testes existentes (`node --test`)
+- `npm test`: executa os testes (`node --test`): validações do backend e ranking de sugestões
 - `npm run firebase:login`: autentica o Firebase CLI (uma vez por máquina)
 - `npm run deploy`: publica no Firebase tudo o que está em `firebase.json` (regras e índices do Firestore)
 
@@ -93,23 +105,31 @@ O hosting e o Blob continuam na Vercel (deploy automático a cada push).
 
 Todos exigem o header `Authorization: Bearer <Firebase ID token>`.
 
-- `GET /api/games`: lista jogos
-- `POST /api/games`: cria jogo
-- `PUT /api/games/:id`: atualiza jogo
-- `DELETE /api/games/:id`: remove jogo
-- `GET /api/platforms`: lista plataformas
-- `POST /api/platforms`: cria plataforma (multipart, imagem opcional enviada ao Vercel Blob)
-- `GET /api/stats`: estatísticas do dashboard
-- `GET /api/search-games?q=...`: busca jogos na API externa
+Cada recurso tem `GET` (lista), `POST` (cria), `PUT /:id` (atualiza) e `DELETE /:id` (exclui):
+
+- `/api/games`
+- `/api/statuses`
+- `/api/platforms` (multipart: `name`, `image` opcional enviada ao Vercel Blob, `removeImage=true` para remover)
+- `/api/genres`
+- `/api/types`
+- `/api/scores` (o id é o próprio valor da nota; o valor não pode ser alterado)
+- `/api/difficulties`
+
+Exclusões de registros em uso retornam `409`. `POST /api/games/import` recebe `{ items, dryRun, indexes }`: com `dryRun: true` devolve a prévia; com `dryRun: false` grava as linhas de `indexes`. Também há `GET /api/search-games?q=...`, que busca jogos na API externa.
 
 ## Estrutura
 
-- `/src/app.js`: app Express com rotas e middleware de autenticação
+- `/src/app.js`: app Express, middleware de autenticação e montagem das rotas
+- `/src/routes/games.js`: CRUD de jogos (validação de referências)
+- `/src/routes/catalog.js`: CRUD genérico dos cadastros (unicidade, referências, bloqueio de exclusão em uso, imagens)
+- `/src/validation.js`: normalização e validação dos payloads
+- `/src/repository.js`: acesso ao Firestore e criação dos valores padrão por usuário
+- `/src/catalog.js`: status, escala de notas e dificuldades padrão
 - `/src/firebase.js`: inicialização do Firebase Admin (Auth + Firestore)
 - `/src/server.js`: bootstrap para execução local
-- `/src/db.js`: camada de acesso ao Firestore
+- `/public/js`: frontend em módulos ES (`main.js` navegação, `datatable.js` componente de tabela, `catalog-views.js` cadastros, `games-view.js` jogos, `dashboard.js`, `suggestions.js`, `auth.js` login com Firebase)
+- `/test`: testes automatizados
 - `/firebase.json`, `/.firebaserc`, `/firestore.indexes.json`: configuração do Firebase CLI
 - `/firestore.rules`: regras de segurança do Firestore
 - `/api/index.js`: entrada serverless para Vercel
-- `/public`: interface web (`auth.js` contém o login com Firebase)
 - `/vercel.json`: roteamento para deploy na Vercel
