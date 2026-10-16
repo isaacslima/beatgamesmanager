@@ -15,6 +15,7 @@ import { clearStore, loadAll, onStoreChange } from './store.js';
 const VIEWS = {
   dashboard: { title: 'Dashboard', subtitle: 'Resumo da sua biblioteca de jogos.' },
   games: { title: 'Jogos', subtitle: 'Gerencie os jogos que você quer zerar, está jogando ou já zerou.' },
+  statuses: { title: 'Status', subtitle: 'Situações possíveis dos jogos.' },
   platforms: { title: 'Plataformas', subtitle: 'Cadastro de consoles e plataformas.' },
   genres: { title: 'Gêneros', subtitle: 'Cadastro de gêneros dos jogos.' },
   types: { title: 'Tipos', subtitle: 'Subcategorias dos gêneros.' },
@@ -22,7 +23,7 @@ const VIEWS = {
   difficulties: { title: 'Níveis de Dificuldade', subtitle: 'Escala de dificuldade dos jogos.' },
 };
 
-const CATALOG_VIEWS = ['platforms', 'genres', 'types', 'scores', 'difficulties'];
+const CATALOG_VIEWS = ['statuses', 'platforms', 'genres', 'types', 'scores', 'difficulties'];
 
 const authLoading = document.getElementById('auth-loading');
 const authView = document.getElementById('auth-view');

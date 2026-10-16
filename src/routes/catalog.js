@@ -11,13 +11,25 @@ const {
   parseType,
   parseScore,
   parseDifficulty,
+  parseStatus,
 } = require('../validation');
+const { PROTECTED_STATUS_IDS } = require('../catalog');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
 
 const DEFINITIONS = {
+  statuses: {
+    label: 'status',
+    parse: parseStatus,
+    uniqueField: 'name',
+    uniqueMessage: 'Já existe um status com esse nome.',
+    protectedIds: PROTECTED_STATUS_IDS,
+    protectedMessage: 'Este status é usado pelos cards do dashboard e não pode ser excluído, mas você pode renomeá-lo.',
+    dependents: [{ collection: 'games', field: 'status', noun: 'jogo(s)' }],
+    sort: (a, b) => a.order - b.order || a.name.localeCompare(b.name, 'pt-BR'),
+  },
   platforms: {
     label: 'plataforma',
     parse: parsePlatform,
@@ -210,6 +222,10 @@ function createCatalogRouter(collection) {
 
       if (!existing) {
         throw new HttpError(404, 'Registro não encontrado.');
+      }
+
+      if (definition.protectedIds?.includes(existing.id)) {
+        throw new HttpError(409, definition.protectedMessage);
       }
 
       for (const dependent of definition.dependents) {

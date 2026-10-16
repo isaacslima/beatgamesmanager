@@ -29,7 +29,7 @@ function fieldHtml(field, value, prefix) {
   }
 
   if (field.type === 'select') {
-    return `<div class="field">${label}<select id="${id}" name="${field.name}" class="input-field"${required}>${optionsHtml(field.options(), value, field.placeholder ?? 'Selecione')}</select>${hint}</div>`;
+    return `<div class="field">${label}<select id="${id}" name="${field.name}" class="input-field"${required}>${optionsHtml(field.options(), value, 'placeholder' in field ? field.placeholder : 'Selecione')}</select>${hint}</div>`;
   }
 
   if (field.type === 'file') {

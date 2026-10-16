@@ -8,6 +8,7 @@ const {
   parseScore,
   parseDifficulty,
   parseType,
+  parseStatus,
 } = require('../src/validation');
 
 test('parsePlayTime aceita HH:MM:SS, HH:MM e horas decimais', () => {
@@ -44,10 +45,22 @@ test('parseGame permite jogo na lista de desejo sem datas', () => {
   assert.equal(data.platformId, null);
 });
 
-test('parseGame exige nome e status válido', () => {
+test('parseGame exige nome e status', () => {
   assert.match(parseGame({ status: 'planned' }).error, /nome/);
   assert.match(parseGame({ title: 'X' }).error, /status/);
-  assert.match(parseGame({ title: 'X', status: 'zerado' }).error, /status/);
+  assert.match(parseGame({ title: 'X', status: '  ' }).error, /status/);
+});
+
+test('parseStatus valida nome e ordem, com cor padrão', () => {
+  assert.deepEqual(parseStatus({ name: 'Jogando', order: '5', color: 'amber' }).data, {
+    name: 'Jogando',
+    color: 'amber',
+    order: 5,
+    description: '',
+  });
+  assert.equal(parseStatus({ name: 'Jogando', order: '5', color: 'neon' }).data.color, 'gray');
+  assert.ok(parseStatus({ order: '1' }).error);
+  assert.ok(parseStatus({ name: 'X' }).error);
 });
 
 test('parseGame valida nota, datas e tempo', () => {

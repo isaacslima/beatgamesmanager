@@ -1,5 +1,5 @@
 const { firestore } = require('./firebase');
-const { DEFAULT_SCORES, DEFAULT_DIFFICULTIES } = require('./catalog');
+const { DEFAULT_SCORES, DEFAULT_DIFFICULTIES, DEFAULT_STATUSES } = require('./catalog');
 
 function userDoc(userId) {
   return firestore.collection('users').doc(userId);
@@ -82,39 +82,59 @@ async function getMany(userId, refs) {
 
 const seededUsers = new Map();
 
-// Cria notas e dificuldades padrão no primeiro acesso de cada usuário.
+// Cada versão adiciona valores padrão; usuários antigos recebem só o que falta.
+const DEFAULTS_VERSION = 2;
+
+function defaultsFor(version) {
+  if (version === 1) {
+    return [
+      ...DEFAULT_SCORES.map((score) => ({ name: 'scores', id: String(score.value), data: score })),
+      ...DEFAULT_DIFFICULTIES.map(({ id, ...difficulty }) => ({ name: 'difficulties', id, data: difficulty })),
+    ];
+  }
+
+  if (version === 2) {
+    return DEFAULT_STATUSES.map(({ id, ...status }) => ({ name: 'statuses', id, data: status }));
+  }
+
+  return [];
+}
+
+// Cria notas, dificuldades e status padrão no primeiro acesso de cada usuário.
 function ensureUserDefaults(userId) {
   if (!seededUsers.has(userId)) {
     const promise = firestore
       .runTransaction(async (transaction) => {
         const ref = userDoc(userId);
         const snapshot = await transaction.get(ref);
+        const legacyVersion = snapshot.exists && snapshot.get('defaultsSeededAt') ? 1 : 0;
+        const currentVersion = (snapshot.exists && snapshot.get('defaultsVersion')) || legacyVersion;
 
-        if (snapshot.exists && snapshot.get('defaultsSeededAt')) {
+        if (currentVersion >= DEFAULTS_VERSION) {
           return;
         }
 
+        const pending = [];
+        for (let version = currentVersion + 1; version <= DEFAULTS_VERSION; version += 1) {
+          pending.push(...defaultsFor(version));
+        }
+
+        // Não sobrescreve registros que o usuário já tenha.
+        const existing = await transaction.getAll(...pending.map((item) => collection(userId, item.name).doc(item.id)));
         const now = new Date().toISOString();
 
-        DEFAULT_SCORES.forEach((score) => {
-          transaction.set(collection(userId, 'scores').doc(String(score.value)), {
-            ...score,
-            description: '',
-            createdAt: now,
-            updatedAt: now,
-          });
+        pending.forEach((item, index) => {
+          if (!existing[index].exists) {
+            transaction.set(collection(userId, item.name).doc(item.id), {
+              ...item.data,
+              description: '',
+              createdAt: now,
+              updatedAt: now,
+            });
+          }
         });
 
-        DEFAULT_DIFFICULTIES.forEach(({ id, ...difficulty }) => {
-          transaction.set(collection(userId, 'difficulties').doc(id), {
-            ...difficulty,
-            description: '',
-            createdAt: now,
-            updatedAt: now,
-          });
-        });
-
-        transaction.set(ref, { defaultsSeededAt: now }, { merge: true });
+        transaction.set(ref, { defaultsVersion: DEFAULTS_VERSION, defaultsSeededAt: now }, { merge: true });
       })
       .catch((error) => {
         seededUsers.delete(userId);
@@ -127,7 +147,19 @@ function ensureUserDefaults(userId) {
   return seededUsers.get(userId);
 }
 
+// Grava vários documentos novos em lotes (limite do Firestore: 500 operações por lote).
+async function createMany(userId, writes) {
+  for (let start = 0; start < writes.length; start += 450) {
+    const batch = firestore.batch();
+    writes.slice(start, start + 450).forEach((write) => {
+      batch.create(collection(userId, write.name).doc(write.id), write.data);
+    });
+    await batch.commit();
+  }
+}
+
 module.exports = {
+  createMany,
   listDocs,
   getDoc,
   createDoc,

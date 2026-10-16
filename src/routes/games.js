@@ -2,10 +2,11 @@ const express = require('express');
 const { randomUUID } = require('node:crypto');
 const repo = require('../repository');
 const { HttpError, handle } = require('../http');
-const { GAME_STATUSES } = require('../catalog');
 const { parseGame } = require('../validation');
+const { planImport, summarize, buildImportWrites } = require('../importer');
 
 const REFERENCES = [
+  { field: 'status', collection: 'statuses', message: 'Status não encontrado.' },
   { field: 'platformId', collection: 'platforms', message: 'Plataforma não encontrada.' },
   { field: 'genreId', collection: 'genres', message: 'Gênero não encontrado.' },
   { field: 'typeId', collection: 'types', message: 'Tipo não encontrado.' },
@@ -24,7 +25,7 @@ function toGame(record) {
     platformId: record.platformId ?? null,
     genreId: record.genreId ?? null,
     typeId: record.typeId ?? null,
-    status: GAME_STATUSES.includes(record.status) ? record.status : 'planned',
+    status: record.status || 'planned',
     startDate: record.startDate ?? null,
     endDate: record.endDate ?? null,
     playTimeSeconds: record.playTimeSeconds ?? legacyPlayTime(record),
@@ -68,7 +69,49 @@ async function assertReferences(userId, data) {
   }
 }
 
+async function loadImportCatalogs(userId) {
+  const names = ['statuses', 'platforms', 'genres', 'types', 'scores', 'difficulties', 'games'];
+  const results = await Promise.all(names.map((name) => repo.listDocs(userId, name)));
+  const catalogs = Object.fromEntries(names.map((name, index) => [name, results[index]]));
+  catalogs.games = catalogs.games.map(toGame);
+  return catalogs;
+}
+
 const router = express.Router();
+
+// dryRun=true devolve a prévia; dryRun=false grava as linhas em "indexes" (ou as válidas e não duplicadas).
+router.post(
+  '/import',
+  handle('Erro ao importar jogos.', async (req, res) => {
+    const { items, dryRun = true, indexes } = req.body || {};
+    const plan = planImport(items, await loadImportCatalogs(req.user.uid));
+
+    if (plan.error) {
+      throw new HttpError(400, plan.error);
+    }
+
+    if (dryRun) {
+      return res.json({
+        summary: summarize(plan),
+        rows: plan.rows.map(({ data: _data, ...row }) => row),
+      });
+    }
+
+    const selected = new Set(
+      Array.isArray(indexes)
+        ? indexes.map(Number)
+        : plan.rows.filter((row) => row.valid && !row.duplicate).map((row) => row.index)
+    );
+    const { writes, counts } = buildImportWrites(plan, selected);
+
+    if (!counts.games) {
+      throw new HttpError(400, 'Nenhum jogo válido selecionado para importar.');
+    }
+
+    await repo.createMany(req.user.uid, writes);
+    return res.status(201).json(counts);
+  })
+);
 
 router.get(
   '/',

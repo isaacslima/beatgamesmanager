@@ -1,4 +1,3 @@
-import { STATUS_BY_VALUE } from './constants.js';
 import { store, findById } from './store.js';
 import { escapeHtml, formatDate, scoreColor } from './ui.js';
 
@@ -33,7 +32,7 @@ export function createDashboard(root, { onFilterByStatus }) {
               <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${card.icon}</svg>
             </span>
             <span>
-              <span class="block text-sm text-gray-500">${card.label}</span>
+              <span data-label class="block text-sm text-gray-500">${card.label}</span>
               <span data-value class="block text-2xl font-bold">0</span>
             </span>
           </${card.status ? 'button' : 'div'}>`
@@ -85,6 +84,12 @@ export function createDashboard(root, { onFilterByStatus }) {
     setCard('platforms', store.platforms.length);
     setCard('completed', games.filter((game) => game.status === 'completed').length);
     setCard('wishlist', games.filter((game) => game.status === 'wishlist').length);
+
+    // Os nomes dos status são editáveis; os cards acompanham.
+    CARDS.filter((card) => card.status).forEach((card) => {
+      const name = findById('statuses', card.status)?.name;
+      root.querySelector(`[data-card="${card.id}"] [data-label]`).textContent = name || card.label;
+    });
 
     // Notas: 11 (Jogo da vida) até 1 (Tragédia)
     const scores = [...store.scores].sort((a, b) => b.value - a.value);
@@ -168,7 +173,7 @@ export function createDashboard(root, { onFilterByStatus }) {
                   <span class="text-amber-500 text-lg" aria-hidden="true">★</span>
                   <span class="min-w-0">
                     <span class="block font-medium text-gray-900 truncate">${escapeHtml(game.title)}</span>
-                    <span class="block text-xs text-gray-500">${escapeHtml([platform, STATUS_BY_VALUE.get(game.status)?.label, date ? formatDate(date) : null].filter(Boolean).join(' · '))}</span>
+                    <span class="block text-xs text-gray-500">${escapeHtml([platform, findById('statuses', game.status)?.name, date ? formatDate(date) : null].filter(Boolean).join(' · '))}</span>
                   </span>
                 </li>`;
             })

@@ -1,4 +1,5 @@
 import { api } from './api.js';
+import { PROTECTED_STATUS_IDS, STATUS_COLORS, statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
 import { openFormModal } from './form-modal.js';
 import { store, reload, findById, countGamesBy } from './store.js';
@@ -26,6 +27,42 @@ function byName(a, b) {
 }
 
 export const CATALOGS = {
+  statuses: {
+    title: 'Status',
+    singular: 'status',
+    gender: 'm',
+    description: 'Situações dos jogos (ex.: Lista de Desejo, Jogando, Zerado). Você pode renomear e criar novos.',
+    columns: [
+      { key: 'order', label: 'Ordem', sortable: true, className: 'w-24' },
+      {
+        key: 'name',
+        label: 'Nome',
+        sortable: true,
+        render: (row) => `
+          <span class="badge ${statusBadgeClass(row.color)}">${escapeHtml(row.name)}</span>
+          ${PROTECTED_STATUS_IDS.includes(row.id) ? '<span class="ml-2 text-xs text-gray-400" title="Usado nos cards do dashboard: pode ser renomeado, mas não excluído">fixo</span>' : ''}`,
+      },
+      descriptionColumn,
+      gamesColumn('status'),
+    ],
+    defaultSort: { key: 'order', dir: 'asc' },
+    searchText: (row) => `${row.name} ${row.description}`,
+    fields: () => [
+      { name: 'name', label: 'Nome', required: true, maxlength: 80, placeholder: 'Ex.: Jogando' },
+      {
+        name: 'color',
+        label: 'Cor',
+        type: 'select',
+        placeholder: undefined,
+        options: () => STATUS_COLORS.map((color) => ({ value: color.value, label: color.label })),
+      },
+      { name: 'order', label: 'Ordem', type: 'number', min: 0, required: true, hint: 'Posição nas listas e filtros.' },
+      descriptionField,
+    ],
+    toPayload: (values) => values,
+    defaults: () => ({ color: 'amber', order: Math.max(0, ...store.statuses.map((item) => item.order)) + 1 }),
+  },
+
   platforms: {
     title: 'Plataformas',
     singular: 'plataforma',

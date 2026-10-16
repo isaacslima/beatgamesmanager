@@ -1,8 +1,9 @@
 import { api } from './api.js';
 import { openCatalogForm } from './catalog-views.js';
-import { STATUSES, STATUS_BY_VALUE } from './constants.js';
+import { statusBadgeClass } from './constants.js';
 import { createDataTable } from './datatable.js';
-import { store, reload, findById, findScore } from './store.js';
+import { createImportPanel } from './import-view.js';
+import { store, reload, findById, findScore, sortedStatuses } from './store.js';
 import { attachConditionSuggestions } from './suggestions.js';
 import { confirmDialog, escapeHtml, formatDate, formatPlayTime, optionsHtml, scoreColor, toast } from './ui.js';
 
@@ -12,8 +13,8 @@ const byName = (a, b) => a.name.localeCompare(b.name, 'pt-BR');
 const dash = '<span class="text-gray-400">-</span>';
 
 export function statusBadge(status) {
-  const item = STATUS_BY_VALUE.get(status);
-  return item ? `<span class="badge ${item.badge}">${escapeHtml(item.label)}</span>` : dash;
+  const item = findById('statuses', status);
+  return item ? `<span class="badge ${statusBadgeClass(item.color)}">${escapeHtml(item.name)}</span>` : dash;
 }
 
 export function scoreBadge(value) {
@@ -48,7 +49,6 @@ function overlapsPeriod(game, { from, to }) {
   return (!from || end >= from) && (!to || start <= to);
 }
 
-const STATUS_ORDER = new Map(STATUSES.map((status, index) => [status.value, index]));
 
 const FORM_HTML = `
   <div class="panel max-w-3xl">
@@ -164,18 +164,24 @@ export function createGamesView(root) {
         <div class="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div>
             <h2 class="panel-title mb-1">Minha biblioteca</h2>
-            <p class="text-sm text-gray-500">Todos os seus jogos: lista de desejo, planejados, zerados e dropados.</p>
+            <p class="text-sm text-gray-500">Todos os seus jogos, em qualquer status.</p>
           </div>
-          <button type="button" data-role="create" class="btn-primary">+ Adicionar jogo</button>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" data-role="import" class="btn-secondary">Importar JSON</button>
+            <button type="button" data-role="create" class="btn-primary">+ Adicionar jogo</button>
+          </div>
         </div>
         <div data-role="table"></div>
       </div>
     </div>
     <div data-role="form-view" class="hidden">${FORM_HTML}</div>
+    <div data-role="import-view" class="hidden"></div>
   `;
 
   const listView = root.querySelector('[data-role="list"]');
   const formView = root.querySelector('[data-role="form-view"]');
+  const importView = root.querySelector('[data-role="import-view"]');
+  const importPanel = createImportPanel(importView, { onClose: () => showList() });
   const form = root.querySelector('[data-role="game-form"]');
   const formTitle = root.querySelector('[data-role="form-title"]');
   const formError = root.querySelector('[data-role="form-error"]');
@@ -225,7 +231,7 @@ export function createGamesView(root) {
         key: 'status',
         label: 'Status',
         sortable: true,
-        sortValue: (game) => STATUS_ORDER.get(game.status),
+        sortValue: (game) => findById('statuses', game.status)?.order ?? null,
         render: (game) => statusBadge(game.status),
       },
       { key: 'startDate', label: 'Início', sortable: true, className: 'whitespace-nowrap', render: (game) => formatDate(game.startDate) },
@@ -265,7 +271,7 @@ export function createGamesView(root) {
         id: 'status',
         label: 'Status',
         type: 'select',
-        options: () => STATUSES.map((status) => ({ value: status.value, label: status.label })),
+        options: () => sortedStatuses().map((status) => ({ value: status.id, label: status.name })),
         predicate: (game, value) => game.status === value,
       },
       { id: 'period', label: 'Período', type: 'date-range', predicate: overlapsPeriod },
@@ -304,7 +310,7 @@ export function createGamesView(root) {
 
   function populateSelects(values) {
     fields.status.innerHTML = optionsHtml(
-      STATUSES.map((status) => ({ value: status.value, label: status.label })),
+      sortedStatuses().map((status) => ({ value: status.id, label: status.name })),
       values.status
     );
     fields.platformId.innerHTML = optionsHtml(
@@ -357,6 +363,7 @@ export function createGamesView(root) {
 
   function showList() {
     formView.classList.add('hidden');
+    importView.classList.add('hidden');
     listView.classList.remove('hidden');
     editingId = null;
   }
@@ -496,6 +503,12 @@ export function createGamesView(root) {
 
   root.querySelector('[data-role="cancel"]').addEventListener('click', showList);
   root.querySelector('[data-role="create"]').addEventListener('click', () => openForm());
+  root.querySelector('[data-role="import"]').addEventListener('click', () => {
+    importPanel.reset();
+    listView.classList.add('hidden');
+    importView.classList.remove('hidden');
+    window.scrollTo({ top: 0 });
+  });
 
   return {
     refresh: () => table.refresh(),

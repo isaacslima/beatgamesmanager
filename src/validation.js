@@ -1,4 +1,4 @@
-const { GAME_STATUSES, MIN_SCORE, MAX_SCORE } = require('./catalog');
+const { MIN_SCORE, MAX_SCORE, STATUS_COLORS } = require('./catalog');
 
 function isBlank(value) {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -134,15 +134,30 @@ function parseDifficulty(body) {
   return { data: { key, label, order, description: text(body.description, 500) } };
 }
 
+function parseStatus(body) {
+  const { name, error } = requireName(body, 'do status');
+  if (error) {
+    return { error };
+  }
+
+  const order = parseInteger(body.order);
+  if (order === null || Number.isNaN(order) || order < 0) {
+    return { error: 'A ordem deve ser um número inteiro maior ou igual a zero.' };
+  }
+
+  const color = STATUS_COLORS.includes(body.color) ? body.color : 'gray';
+  return { data: { name, color, order, description: text(body.description, 500) } };
+}
+
 function parseGame(body) {
   const title = text(body.title, 200);
   if (!title) {
     return { error: 'O nome do jogo é obrigatório.' };
   }
 
-  const status = text(body.status, 20);
-  if (!GAME_STATUSES.includes(status)) {
-    return { error: 'Selecione um status válido.' };
+  const status = optionalId(body.status);
+  if (!status) {
+    return { error: 'O status é obrigatório.' };
   }
 
   const startDate = parseDate(body.startDate, 'data de início');
@@ -197,5 +212,6 @@ module.exports = {
   parseType,
   parseScore,
   parseDifficulty,
+  parseStatus,
   parseGame,
 };

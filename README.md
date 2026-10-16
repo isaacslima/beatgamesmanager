@@ -7,11 +7,13 @@ A especificação completa está em [`docs/especifica_o_de_features_beat_games.m
 
 - **Dashboard**: cards de totais (jogos, plataformas, zerados, lista de desejo), gráficos por nota (11 a 1), por dificuldade (C a AAA), top plataformas e lista dos jogos GOTY.
 - **Jogos**: DataTable com busca, filtros (plataforma, gênero, status, período e GOTY), ordenação por coluna e paginação.
-- **Cadastros** com CRUD e DataTable próprios: Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
+- **Cadastros** com CRUD e DataTable próprios: Status (nome, cor e ordem editáveis), Plataformas (com imagem), Gêneros, Tipos (subcategoria opcional de um gênero), Notas / Avaliações (escala de 1 a 11) e Níveis de Dificuldade.
 - **Campos do jogo**: nome, plataforma, gênero, tipo, status, data de início e término (opcionais), tempo total (`HH:MM:SS`, `HH:MM` ou horas decimais), nota, dificuldade, condição de zeramento, destaque/GOTY e observações.
 - **Condição de zeramento com sugestões**: ao focar ou digitar no campo, o sistema sugere condições já usadas no seu histórico, priorizando jogos do mesmo tipo, gênero e plataforma, além de exemplos padrão.
 - **Integridade**: não é possível excluir plataforma, gênero, tipo, nota ou dificuldade em uso por algum jogo.
-- No primeiro acesso, cada usuário recebe a escala de notas (11 - Jogo da vida até 1 - Tragédia) e as dificuldades (C/Fácil até AAA/Imperdoável) já cadastradas. Elas são editáveis.
+- **Importação via JSON** (Jogos > Importar JSON): baixe o exemplo, selecione o arquivo e confira a prévia linha a linha (erros, possíveis duplicados e cadastros que serão criados) antes de confirmar. Plataformas, gêneros e tipos são informados pelo nome e criados se não existirem; status, dificuldade e nota precisam já estar cadastrados.
+- No primeiro acesso, cada usuário recebe os status (Lista de Desejo, Planejado para Jogar, Zerado, Dropado), a escala de notas (11 - Jogo da vida até 1 - Tragédia) e as dificuldades (C/Fácil até AAA/Imperdoável). Tudo é editável; "Lista de Desejo" e "Zerado" podem ser renomeados, mas não excluídos, porque alimentam os cards do dashboard.
+- **Dados por usuário**: cada conta tem os próprios jogos e cadastros; o backend só acessa `users/{uid}` do usuário do token.
 - Busca opcional do nome do jogo na API externa (CheapShark), direto no formulário.
 
 ## Stack atual
@@ -29,6 +31,7 @@ Cada usuário tem seus próprios dados no Firestore:
 users/{uid}                       { defaultsSeededAt }
 users/{uid}/games/{gameId}        title, platformId, genreId, typeId, status, startDate, endDate,
                                   playTimeSeconds, score, difficultyId, completionCondition, isGoty, notes
+users/{uid}/statuses/{id}         name, color, order, description
 users/{uid}/platforms/{id}        name, imageUrl
 users/{uid}/genres/{id}           name, description
 users/{uid}/types/{id}            name, genreId (opcional), description
@@ -36,7 +39,7 @@ users/{uid}/scores/{valor}        value (1–11), label, description
 users/{uid}/difficulties/{id}     key (C…AAA), label, order, description
 ```
 
-Status do jogo: `wishlist` (Lista de Desejo), `planned` (Planejado para Jogar), `completed` (Zerado) e `dropped` (Dropado).
+O campo `status` do jogo guarda o id de um registro em `statuses` (os padrões usam os ids `wishlist`, `planned`, `completed` e `dropped`).
 
 ## Requisitos
 
@@ -105,13 +108,14 @@ Todos exigem o header `Authorization: Bearer <Firebase ID token>`.
 Cada recurso tem `GET` (lista), `POST` (cria), `PUT /:id` (atualiza) e `DELETE /:id` (exclui):
 
 - `/api/games`
+- `/api/statuses`
 - `/api/platforms` (multipart: `name`, `image` opcional enviada ao Vercel Blob, `removeImage=true` para remover)
 - `/api/genres`
 - `/api/types`
 - `/api/scores` (o id é o próprio valor da nota; o valor não pode ser alterado)
 - `/api/difficulties`
 
-Exclusões de registros em uso retornam `409`. Também há `GET /api/search-games?q=...`, que busca jogos na API externa.
+Exclusões de registros em uso retornam `409`. `POST /api/games/import` recebe `{ items, dryRun, indexes }`: com `dryRun: true` devolve a prévia; com `dryRun: false` grava as linhas de `indexes`. Também há `GET /api/search-games?q=...`, que busca jogos na API externa.
 
 ## Estrutura
 

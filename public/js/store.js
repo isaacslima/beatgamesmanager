@@ -1,6 +1,6 @@
 import { api } from './api.js';
 
-export const COLLECTIONS = ['games', 'platforms', 'genres', 'types', 'scores', 'difficulties'];
+export const COLLECTIONS = ['games', 'statuses', 'platforms', 'genres', 'types', 'scores', 'difficulties'];
 
 export const store = Object.fromEntries(COLLECTIONS.map((name) => [name, []]));
 
@@ -50,4 +50,8 @@ export function findScore(value) {
 
 export function countGamesBy(field, value) {
   return store.games.filter((game) => game[field] === value).length;
+}
+
+export function sortedStatuses() {
+  return [...store.statuses].sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'pt-BR'));
 }
